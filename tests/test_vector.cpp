@@ -137,6 +137,55 @@ void test_vector() {
     assert(vec[2] == 7);
     assert(*it == 7);
 
+    // 範囲insertのテスト
+    vec.assign(2, 1);
+    it = vec.insert(vec.begin() + 1, 3, 9);
+    assert(vec.size() == 5);
+    assert(vec[0] == 1);
+    assert(vec[1] == 9);
+    assert(vec[2] == 9);
+    assert(vec[3] == 9);
+    assert(vec[4] == 1);
+
+    // 範囲eraseのテスト
+    it = vec.erase(vec.begin() + 1, vec.begin() + 4);
+    assert(vec.size() == 2);
+    assert(vec[0] == 1);
+    assert(vec[1] == 1);
+    assert(it == vec.begin() + 1);
+
+    // fillのテスト
+    vec.fill(123);
+    assert(vec[0] == 123 && vec[1] == 123);
+
+    // shrink_to_fitのテスト
+    size_t old_capacity = vec.capacity();
+    vec.shrink_to_fit();
+    assert(vec.capacity() == vec.size());
+    assert(vec.capacity() <= old_capacity);
+
+    // 比較演算子のテスト
+    bluestl::vector<int, TestVectorAllocator> vcmp1(allocator);
+    bluestl::vector<int, TestVectorAllocator> vcmp2(allocator);
+    vcmp1.assign(2, 5);
+    vcmp2.assign(2, 5);
+    assert(vcmp1 == vcmp2);
+    vcmp2[1] = 6;
+    assert(vcmp1 != vcmp2);
+    assert(vcmp1 < vcmp2);
+    assert(vcmp2 > vcmp1);
+    assert(vcmp1 <= vcmp2);
+    assert(vcmp2 >= vcmp1);
+
+    // コピー・ムーブ・イニシャライザリストのテスト
+    bluestl::vector<int, TestVectorAllocator> vcopy(vec, allocator);
+    assert(vcopy == vec);
+    bluestl::vector<int, TestVectorAllocator> vmove(std::move(vcopy), allocator);
+    assert(vmove == vec);
+    bluestl::vector<int, TestVectorAllocator> vinit({1,2,3,4,5}, allocator);
+    bluestl::vector<int, TestVectorAllocator> vinit2({1,2,3,4,5}, allocator);
+    assert(vinit == vinit2);
+
 
     std::cout << "All vector tests passed!" << std::endl;
 }

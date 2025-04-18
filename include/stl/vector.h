@@ -18,8 +18,82 @@ namespace bluestl
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-        explicit vector(const Allocator &allocator)
+        // デフォルトコンストラクタは削除
+        vector() = delete;
+
+        // コピーコンストラクタ
+        vector(const vector& other)
+            : m_allocator(other.m_allocator), m_data(nullptr), m_size(0), m_capacity(0) {
+            reserve(other.m_size);
+            for (size_t i = 0; i < other.m_size; ++i) {
+                push_back(other.m_data[i]);
+            }
+        }
+
+        // ムーブコンストラクタ
+        vector(vector&& other) noexcept
+            : m_allocator(std::move(other.m_allocator)), m_data(other.m_data), m_size(other.m_size), m_capacity(other.m_capacity) {
+            other.m_data = nullptr;
+            other.m_size = 0;
+            other.m_capacity = 0;
+        }
+
+        // コピーコンストラクタ(allocator指定)
+        vector(const vector& other, const Allocator& allocator)
+            : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {
+            reserve(other.m_size);
+            for (size_t i = 0; i < other.m_size; ++i) {
+                push_back(other.m_data[i]);
+            }
+        }
+
+        // ムーブコンストラクタ(allocator指定)
+        vector(vector&& other, const Allocator& allocator) noexcept
+            : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {
+            reserve(other.m_size);
+            for (size_t i = 0; i < other.m_size; ++i) {
+                push_back(std::move(other.m_data[i]));
+            }
+            other.clear();
+        }
+
+        // アロケータのみを受け取るコンストラクタ
+        explicit vector(const Allocator& allocator)
             : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {}
+
+        // コピー代入演算子
+        vector& operator=(const vector& other) {
+            if (this != &other) {
+                clear();
+                reserve(other.m_size);
+                for (size_t i = 0; i < other.m_size; ++i) {
+                    push_back(other.m_data[i]);
+                }
+            }
+            return *this;
+        }
+
+        // ムーブ代入演算子
+        vector& operator=(vector&& other) noexcept {
+            if (this != &other) {
+                clear();
+                reserve(other.m_size);
+                for (size_t i = 0; i < other.m_size; ++i) {
+                    push_back(std::move(other.m_data[i]));
+                }
+                other.clear();
+            }
+            return *this;
+        }
+
+        // イニシャライザリストコンストラクタ
+        vector(std::initializer_list<T> ilist, const Allocator& allocator)
+            : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {
+            reserve(ilist.size());
+            for (const auto& v : ilist) {
+                push_back(v);
+            }
+        }
 
         ~vector()
         {
@@ -152,6 +226,22 @@ namespace bluestl
             return m_data + idx;
         }
 
+        // insert: 範囲
+        iterator insert(iterator pos, size_t count, const T& value) {
+            size_t idx = pos - m_data;
+            CONTAINER_ASSERT(idx <= m_size);
+            reserve(m_size + count);
+            for (size_t i = m_size + count - 1; i >= idx + count; --i) {
+                new (&m_data[i]) T(std::move(m_data[i - count]));
+                m_data[i - count].~T();
+            }
+            for (size_t i = 0; i < count; ++i) {
+                new (&m_data[idx + i]) T(value);
+            }
+            m_size += count;
+            return m_data + idx;
+        }
+
         // erase: 単一要素
         iterator erase(iterator pos) {
             size_t idx = pos - m_data;
@@ -163,6 +253,77 @@ namespace bluestl
             }
             --m_size;
             return m_data + idx;
+        }
+
+        // erase: 範囲
+        iterator erase(iterator first, iterator last) {
+            size_t idx_first = first - m_data;
+            size_t idx_last = last - m_data;
+            CONTAINER_ASSERT(idx_first <= idx_last && idx_last <= m_size);
+            size_t count = idx_last - idx_first;
+            for (size_t i = idx_first; i < idx_last; ++i) {
+                m_data[i].~T();
+            }
+            for (size_t i = idx_last; i < m_size; ++i) {
+                new (&m_data[i - count]) T(std::move(m_data[i]));
+                m_data[i].~T();
+            }
+            m_size -= count;
+            return m_data + idx_first;
+        }
+
+        // data
+        T* data() noexcept { return m_data; }
+        const T* data() const noexcept { return m_data; }
+
+        // shrink_to_fit
+        void shrink_to_fit() {
+            if (m_size < m_capacity) {
+                T* new_data = static_cast<T*>(m_allocator.allocate(m_size * sizeof(T)));
+                for (size_t i = 0; i < m_size; ++i) {
+                    new (&new_data[i]) T(std::move(m_data[i]));
+                    m_data[i].~T();
+                }
+                if (m_data) m_allocator.deallocate(m_data, m_capacity * sizeof(T));
+                m_data = new_data;
+                m_capacity = m_size;
+            }
+        }
+
+        // fill
+        void fill(const T& value) {
+            for (size_t i = 0; i < m_size; ++i) {
+                m_data[i] = value;
+            }
+        }
+
+        // 比較演算子
+        friend bool operator==(const vector& lhs, const vector& rhs) {
+            if (lhs.m_size != rhs.m_size) return false;
+            for (size_t i = 0; i < lhs.m_size; ++i) {
+                if (!(lhs.m_data[i] == rhs.m_data[i])) return false;
+            }
+            return true;
+        }
+        friend bool operator!=(const vector& lhs, const vector& rhs) {
+            return !(lhs == rhs);
+        }
+        friend bool operator<(const vector& lhs, const vector& rhs) {
+            size_t n = lhs.m_size < rhs.m_size ? lhs.m_size : rhs.m_size;
+            for (size_t i = 0; i < n; ++i) {
+                if (lhs.m_data[i] < rhs.m_data[i]) return true;
+                if (rhs.m_data[i] < lhs.m_data[i]) return false;
+            }
+            return lhs.m_size < rhs.m_size;
+        }
+        friend bool operator>(const vector& lhs, const vector& rhs) {
+            return rhs < lhs;
+        }
+        friend bool operator<=(const vector& lhs, const vector& rhs) {
+            return !(rhs < lhs);
+        }
+        friend bool operator>=(const vector& lhs, const vector& rhs) {
+            return !(lhs < rhs);
         }
 
     private:
