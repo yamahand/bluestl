@@ -1,23 +1,11 @@
 ﻿#include "../include/stl/vector.h"
+#include "test_allocator.h"
 #include <iostream>
 #include <cassert>
 
-class TestVectorAllocator : public bluestl::allocator {
-public:
-    TestVectorAllocator() : bluestl::allocator("TestVectorAllocator") {}
-
-    void* allocate(size_t n) override {
-        return ::operator new(n);
-    }
-
-    void deallocate(void* p, size_t) override {
-        ::operator delete(p);
-    }
-};
-
 void test_vector() {
-    auto allocator = TestVectorAllocator();
-    bluestl::vector<int, TestVectorAllocator> vec(allocator);
+    TestAllocator allocator("test_vector");
+    bluestl::vector<int> vec(allocator);
 
     // 初期状態のテスト
     assert(vec.size() == 0);
@@ -111,7 +99,7 @@ void test_vector() {
     assert(vec.back() == 250);
 
     // swapのテスト
-    bluestl::vector<int, TestVectorAllocator> vec2(allocator);
+    bluestl::vector<int> vec2(allocator);
     vec2.push_back(999);
     vec.swap(vec2);
     assert(vec.size() == 1);
@@ -165,8 +153,8 @@ void test_vector() {
     assert(vec.capacity() <= old_capacity);
 
     // 比較演算子のテスト
-    bluestl::vector<int, TestVectorAllocator> vcmp1(allocator);
-    bluestl::vector<int, TestVectorAllocator> vcmp2(allocator);
+    bluestl::vector<int> vcmp1(allocator);
+    bluestl::vector<int> vcmp2(allocator);
     vcmp1.assign(2, 5);
     vcmp2.assign(2, 5);
     assert(vcmp1 == vcmp2);
@@ -178,12 +166,12 @@ void test_vector() {
     assert(vcmp2 >= vcmp1);
 
     // コピー・ムーブ・イニシャライザリストのテスト
-    bluestl::vector<int, TestVectorAllocator> vcopy(vec, allocator);
+    bluestl::vector<int> vcopy(vec, allocator);
     assert(vcopy == vec);
-    bluestl::vector<int, TestVectorAllocator> vmove(std::move(vcopy), allocator);
+    bluestl::vector<int> vmove(std::move(vcopy), allocator);
     assert(vmove == vec);
-    bluestl::vector<int, TestVectorAllocator> vinit({1,2,3,4,5}, allocator);
-    bluestl::vector<int, TestVectorAllocator> vinit2({1,2,3,4,5}, allocator);
+    bluestl::vector<int> vinit({1,2,3,4,5}, allocator);
+    bluestl::vector<int> vinit2({1,2,3,4,5}, allocator);
     assert(vinit == vinit2);
 
 
