@@ -39,7 +39,7 @@ namespace bluestl
         }
 
         // コピーコンストラクタ(allocator指定)
-        vector(const vector& other, const Allocator& allocator)
+        vector(const vector& other, Allocator& allocator)
             : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {
             reserve(other.m_size);
             for (size_t i = 0; i < other.m_size; ++i) {
@@ -48,7 +48,7 @@ namespace bluestl
         }
 
         // ムーブコンストラクタ(allocator指定)
-        vector(vector&& other, const Allocator& allocator) noexcept
+        vector(vector&& other, Allocator& allocator) noexcept
             : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {
             reserve(other.m_size);
             for (size_t i = 0; i < other.m_size; ++i) {
@@ -58,13 +58,14 @@ namespace bluestl
         }
 
         // アロケータのみを受け取るコンストラクタ
-        explicit vector(const Allocator& allocator)
+        explicit vector(Allocator& allocator)
             : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {}
 
         // コピー代入演算子
         vector& operator=(const vector& other) {
             if (this != &other) {
                 clear();
+                m_allocator = other.m_allocator;
                 reserve(other.m_size);
                 for (size_t i = 0; i < other.m_size; ++i) {
                     push_back(other.m_data[i]);
@@ -77,6 +78,7 @@ namespace bluestl
         vector& operator=(vector&& other) noexcept {
             if (this != &other) {
                 clear();
+                m_allocator = std::move(other.m_allocator);
                 reserve(other.m_size);
                 for (size_t i = 0; i < other.m_size; ++i) {
                     push_back(std::move(other.m_data[i]));
@@ -87,7 +89,7 @@ namespace bluestl
         }
 
         // イニシャライザリストコンストラクタ
-        vector(std::initializer_list<T> ilist, const Allocator& allocator)
+        vector(std::initializer_list<T> ilist, Allocator& allocator)
             : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {
             reserve(ilist.size());
             for (const auto& v : ilist) {
@@ -195,7 +197,6 @@ namespace bluestl
         // swap
         void swap(vector& other) noexcept {
             using std::swap;
-            swap(m_allocator, other.m_allocator);
             swap(m_data, other.m_data);
             swap(m_size, other.m_size);
             swap(m_capacity, other.m_capacity);
@@ -327,7 +328,7 @@ namespace bluestl
         }
 
     private:
-        Allocator m_allocator;
+        Allocator& m_allocator;
         T *m_data;
         size_t m_size;
         size_t m_capacity;
