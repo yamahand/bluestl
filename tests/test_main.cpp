@@ -1,29 +1,34 @@
-﻿#include <catch2/catch_test_macros.hpp>
+﻿#define CATCH_CONFIG_MAIN
+#include <catch2/catch_test_macros.hpp>
 #include <iostream>
+#include "../include/stl/assert_handler.h"
 
-// ハッシュ関数テスト
-void test_hash_functions();
-// hash_map, fixed_hash_mapテスト
-void test_fixed_hash_map();
-void test_hash_map();
-// fixed_vector, vector, fixed_vector_ext テスト
-void test_fixed_vector();
-void test_vector();
-void test_fixed_vector_ext();
+// BlueStlのメインテストファイル
+// Catch2 v3を使用してテストを実行する
 
-int main() {
-    std::cout << "test_hash_functions..." << std::endl;
-    test_hash_functions();
-    std::cout << "test_fixed_hash_map..." << std::endl;
-    test_fixed_hash_map();
-    std::cout << "test_hash_map..." << std::endl;
-    test_hash_map();
-    std::cout << "test_fixed_vector..." << std::endl;
-    test_fixed_vector();
-    std::cout << "test_vector..." << std::endl;
-    test_vector();
-    std::cout << "test_fixed_vector_ext..." << std::endl;
-    test_fixed_vector_ext();
-    std::cout << "すべてのテストが正常に完了しました。" << std::endl;
-    return 0;
+// テスト用のカスタムアサートハンドラ
+// このハンドラは標準エラーにメッセージを出力し、Catch2がキャッチできるように例外をスローする代わりに
+// 特定のエラーコードで終了します
+void test_assert_handler(const char* condition, const char* file, int line, const char* msg) {
+    std::cerr << "\nアサート失敗: " << (condition ? condition : "不明な条件") 
+              << " [ファイル: " << (file ? file : "不明") 
+              << ", 行: " << line << "]";
+    
+    if (msg && *msg) {
+        std::cerr << "\nメッセージ: " << msg;
+    }
+    std::cerr << std::endl;
+    
 }
+
+// テスト実行前にカスタムアサートハンドラを設定
+struct AssertHandlerSetter {
+    AssertHandlerSetter() {
+        // テスト開始前にカスタムアサートハンドラを設定
+        bluestl::set_assert_handler(test_assert_handler);
+        std::cout << "カスタムアサートハンドラを設定しました。" << std::endl;
+    }
+};
+
+// グローバルインスタンスを作成してテスト実行前に初期化されるようにする
+static AssertHandlerSetter g_assert_handler_setter;

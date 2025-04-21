@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include <cstdio>
+#include <print>
 #include "../include/stl/allocator.h"
+#include "../include/stl/fixed_hash_map.h"
 
 class TestAllocator : public bluestl::allocator {
 public:
@@ -10,23 +12,34 @@ public:
 
     ~TestAllocator() {
         if (allocate_count == deallocate_count) {
-            printf("[TestAllocator] メモリリークなし (allocate: %zu, deallocate: %zu)\n", allocate_count, deallocate_count);
+            std::print("[TestAllocator] メモリリークなし (allocate: {}, deallocate: {})\n", allocate_count, deallocate_count);
         } else {
-            printf("[TestAllocator] メモリリーク検出! (allocate: %zu, deallocate: %zu)\n", allocate_count, deallocate_count);
+            std::print("[TestAllocator] メモリリーク検出! (allocate: {}, deallocate: {})\n", allocate_count, deallocate_count);
         }
     }
 
     void* allocate(size_t n) override {
         ++allocate_count;
-        return ::operator new(n);
+		void* p = ::operator new(n);
+		allocations.insert(p, n);
+        return p;
     }
 
     void deallocate(void* p, size_t) override {
         ++deallocate_count;
+		auto it = allocations.find(p);
+		if (it) {
+			allocations.erase(it);
+		}
+		else {
+            std::print("[TestAllocator] 不明なポインタの解放: {}\n", p);
+		}
         ::operator delete(p);
     }
 
 private:
     size_t allocate_count;
     size_t deallocate_count;
+	bluestl::fixed_hash_map<void*, size_t, 8> allocations;
+
 };

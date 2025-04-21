@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(BlueStl LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -18,6 +18,8 @@ FetchContent_MakeAvailable(Catch2)
 
 
 # テスト用の実行ファイル
-file(GLOB TEST_SOURCES tests/*.cpp)
+file(GLOB TEST_SOURCES tests/*.cpp tests/*.h, include/*.h)
+
 add_executable(test_all ${TEST_SOURCES})
 target_link_libraries(test_all PRIVATE Catch2::Catch2WithMain)
+target_include_directories(test_all PRIVATE include)
