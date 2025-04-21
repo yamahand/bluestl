@@ -6,6 +6,8 @@
 #include <source_location>
 #include <cstdio>
 #include <cstdlib>
+#include <print>
+#include "assert_handler.h"  // アサート機能をインクルード
 
 namespace bluestl {
 
@@ -17,18 +19,12 @@ enum class LogLevel {
 };
 
 using FormattedLogFn = void(*)(LogLevel level, std::string_view message);
-using AssertHandlerFn = void(*)(const char* expr, const char* file, int line);
 
 // 内部静的関数ポインタ（inline変数でヘッダオンリー化）
 inline FormattedLogFn g_log_fn = nullptr;
-inline AssertHandlerFn g_assert_fn = nullptr;
 
 inline void set_log_function(FormattedLogFn fn) {
     g_log_fn = fn;
-}
-
-inline void set_assert_handler(AssertHandlerFn fn) {
-    g_assert_fn = fn;
 }
 
 inline void log(LogLevel level, std::string_view msg) {
@@ -51,13 +47,4 @@ inline void logf(
     log(level, with_loc);
 }
 
-[[noreturn]] inline void assert_fail(const char* expr, const char* file, int line) {
-    if (g_assert_fn) {
-        g_assert_fn(expr, file, line);
-    } else {
-        std::fprintf(stderr, "Assertion failed: %s (%s:%d)\n", expr, file, line);
-        std::abort();
-    }
-}
-
-} // namespace fixed_vector
+} // namespace bluestl

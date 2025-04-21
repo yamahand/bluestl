@@ -110,11 +110,9 @@ namespace bluestl
                 reserve((m_capacity == 0) ? 4 : m_capacity * 2);
             new (&m_data[m_size]) T(value);
             ++m_size;
-        }
-
-        void pop_back()
+        }        void pop_back()
         {
-            CONTAINER_ASSERT(m_size > 0);
+            BLUESTL_ASSERT(m_size > 0);
             m_data[--m_size].~T();
         }
 
@@ -167,15 +165,13 @@ namespace bluestl
         const T& back() const { return m_data[m_size - 1]; }
 
         // 空かどうか
-        bool empty() const noexcept { return m_size == 0; }
-
-        // 範囲チェック付きアクセス（例外は使わずアサート）
+        bool empty() const noexcept { return m_size == 0; }        // 範囲チェック付きアクセス（例外は使わずアサート）
         T& at(size_t i) {
-            CONTAINER_ASSERT(i < m_size);
+            BLUESTL_ASSERT(i < m_size);
             return m_data[i];
         }
         const T& at(size_t i) const {
-            CONTAINER_ASSERT(i < m_size);
+            BLUESTL_ASSERT(i < m_size);
             return m_data[i];
         }
 
@@ -210,12 +206,10 @@ namespace bluestl
                 new (&m_data[i]) T(value);
             }
             m_size = count;
-        }
-
-        // insert: 単一要素
+        }        // insert: 単一要素
         iterator insert(iterator pos, const T& value) {
             size_t idx = pos - m_data;
-            CONTAINER_ASSERT(idx <= m_size);
+            BLUESTL_ASSERT(idx <= m_size);
             if (m_size >= m_capacity)
                 reserve((m_capacity == 0) ? 4 : m_capacity * 2);
             for (size_t i = m_size; i > idx; --i) {
@@ -225,12 +219,10 @@ namespace bluestl
             new (&m_data[idx]) T(value);
             ++m_size;
             return m_data + idx;
-        }
-
-        // insert: 範囲
+        }        // insert: 範囲
         iterator insert(iterator pos, size_t count, const T& value) {
             size_t idx = pos - m_data;
-            CONTAINER_ASSERT(idx <= m_size);
+            BLUESTL_ASSERT(idx <= m_size);
             reserve(m_size + count);
             for (size_t i = m_size + count - 1; i >= idx + count; --i) {
                 new (&m_data[i]) T(std::move(m_data[i - count]));
@@ -241,12 +233,10 @@ namespace bluestl
             }
             m_size += count;
             return m_data + idx;
-        }
-
-        // erase: 単一要素
+        }        // erase: 単一要素
         iterator erase(iterator pos) {
             size_t idx = pos - m_data;
-            CONTAINER_ASSERT(idx < m_size);
+            BLUESTL_ASSERT(idx < m_size);
             m_data[idx].~T();
             for (size_t i = idx; i < m_size - 1; ++i) {
                 new (&m_data[i]) T(std::move(m_data[i + 1]));
@@ -254,13 +244,11 @@ namespace bluestl
             }
             --m_size;
             return m_data + idx;
-        }
-
-        // erase: 範囲
+        }        // erase: 範囲
         iterator erase(iterator first, iterator last) {
             size_t idx_first = first - m_data;
             size_t idx_last = last - m_data;
-            CONTAINER_ASSERT(idx_first <= idx_last && idx_last <= m_size);
+            BLUESTL_ASSERT(idx_first <= idx_last && idx_last <= m_size);
             size_t count = idx_last - idx_first;
             for (size_t i = idx_first; i < idx_last; ++i) {
                 m_data[i].~T();
