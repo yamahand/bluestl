@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <concepts>
 #include <iterator>
+#include "stl/assert_handler.h"
 
 namespace bluestl {
 
@@ -21,6 +22,11 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     constexpr fixed_vector() noexcept : size_(0) {}
+
+    // デストラクタ
+    ~fixed_vector() noexcept {
+        clear();
+    }
 
     constexpr bool push_back(const T& value) noexcept {
         if (size_ >= Capacity) return false;
@@ -66,13 +72,13 @@ public:
     [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
     [[nodiscard]] constexpr reference at(size_type pos) noexcept {
-        return (pos < size_) ? data()[pos] : data()[size_ - 1]; // 安全なアクセス
+        BLUESTL_ASSERT(pos < size_);
+        return data()[pos];
     }
-
     [[nodiscard]] constexpr const_reference at(size_type pos) const noexcept {
-        return (pos < size_) ? data()[pos] : data()[size_ - 1];
+        BLUESTL_ASSERT(pos < size_);
+        return data()[pos];
     }
-
     // operator[]
     [[nodiscard]] constexpr reference operator[](size_type pos) noexcept {
         return data()[pos];
@@ -80,13 +86,41 @@ public:
     [[nodiscard]] constexpr const_reference operator[](size_type pos) const noexcept {
         return data()[pos];
     }
-
     // front/back/empty
-    [[nodiscard]] constexpr reference front() noexcept { return data()[0]; }
-    [[nodiscard]] constexpr const_reference front() const noexcept { return data()[0]; }
-    [[nodiscard]] constexpr reference back() noexcept { return data()[size_ - 1]; }
-    [[nodiscard]] constexpr const_reference back() const noexcept { return data()[size_ - 1]; }
+    [[nodiscard]] constexpr reference front() noexcept {
+        BLUESTL_ASSERT(size_ > 0);
+        return data()[0];
+    }
+    [[nodiscard]] constexpr const_reference front() const noexcept {
+        BLUESTL_ASSERT(size_ > 0);
+        return data()[0];
+    }
+    [[nodiscard]] constexpr reference back() noexcept {
+        BLUESTL_ASSERT(size_ > 0);
+        return data()[size_ - 1];
+    }
+    [[nodiscard]] constexpr const_reference back() const noexcept {
+        BLUESTL_ASSERT(size_ > 0);
+        return data()[size_ - 1];
+    }
     [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; }
+
+    // ムーブ対応 push_back
+    constexpr bool push_back(T&& value) noexcept {
+        if (size_ >= Capacity) return false;
+        new (data() + size_) T(std::move(value));
+        ++size_;
+        return true;
+    }
+
+    // emplace_back
+    template <class... Args>
+    constexpr bool emplace_back(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args&&...>) {
+        if (size_ >= Capacity) return false;
+        new (data() + size_) T(std::forward<Args>(args)...);
+        ++size_;
+        return true;
+    }
 
     // assign
     constexpr void assign(size_type count, const T& value) noexcept {
