@@ -50,6 +50,14 @@ constexpr std::uint32_t hash_murmur(const T& value, std::uint32_t seed = 0) noex
     return murmur3_32(&value, sizeof(T), seed);
 }
 
+// C文字列（const char*）向けの特殊化
+inline std::uint32_t hash_murmur(const char* str, std::uint32_t seed = 0) noexcept {
+    if (!str) return 0;
+    std::size_t len = 0;
+    while (str[len]) ++len;
+    return murmur3_32(str, len, seed);
+}
+
 // MurmurHash3 64bit版の簡易実装
 constexpr std::uint64_t murmur3_64(const void* key, std::size_t len, std::uint64_t seed = 0) noexcept {
     const std::uint8_t* data = static_cast<const std::uint8_t*>(key);
@@ -100,5 +108,41 @@ template <typename T>
 constexpr std::uint64_t hash_murmur64(const T& value, std::uint64_t seed = 0) noexcept {
     return murmur3_64(&value, sizeof(T), seed);
 }
+
+// 64bit版も同様に特殊化
+inline std::uint64_t hash_murmur64(const char* str, std::uint64_t seed = 0) noexcept {
+    if (!str) return 0;
+    std::size_t len = 0;
+    while (str[len]) ++len;
+    return murmur3_64(str, len, seed);
+}
+
+#if defined(BLUESTL_USE_STD_STRING_HASH)
+
+// std::string向けの特殊化
+#include <string>
+template<>
+inline std::uint32_t hash_murmur<std::string>(const std::string& value, std::uint32_t seed) noexcept {
+    return murmur3_32(value.data(), value.size(), seed);
+}
+
+// std::string_view向けの特殊化
+#include <string_view>
+template<>
+inline std::uint32_t hash_murmur<std::string_view>(const std::string_view& value, std::uint32_t seed) noexcept {
+    return murmur3_32(value.data(), value.size(), seed);
+}
+
+template<>
+inline std::uint64_t hash_murmur64<std::string>(const std::string& value, std::uint64_t seed) noexcept {
+    return murmur3_64(value.data(), value.size(), seed);
+}
+
+template<>
+inline std::uint64_t hash_murmur64<std::string_view>(const std::string_view& value, std::uint64_t seed) noexcept {
+    return murmur3_64(value.data(), value.size(), seed);
+}
+
+#endif // BLUESTL_USE_STD_STRING_HASH
 
 } // namespace bluestl

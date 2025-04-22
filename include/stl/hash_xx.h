@@ -98,4 +98,48 @@ constexpr std::uint64_t hash_xx64(const T& value, std::uint64_t seed = 0) noexce
     return xxhash64(&value, sizeof(T), seed);
 }
 
+// C文字列（const char*）向けの特殊化
+inline std::uint32_t hash_xx(const char* str, std::uint32_t seed = 0) noexcept {
+    if (!str) return 0;
+    std::size_t len = 0;
+    while (str[len]) ++len;
+    return xxhash32(str, len, seed);
+}
+
+// 64bit版も同様に特殊化
+inline std::uint64_t hash_xx64(const char* str, std::uint64_t seed = 0) noexcept {
+    if (!str) return 0;
+    std::size_t len = 0;
+    while (str[len]) ++len;
+    return xxhash64(str, len, seed);
+}
+
+#if defined(BLUESTL_USE_STD_STRING_HASH)
+
+// std::string向けの特殊化
+#include <string>
+template<>
+inline std::uint32_t hash_xx<std::string>(const std::string& value, std::uint32_t seed) noexcept {
+    return xxhash32(value.data(), value.size(), seed);
+}
+
+// std::string_view向けの特殊化
+#include <string_view>
+template<>
+inline std::uint32_t hash_xx<std::string_view>(const std::string_view& value, std::uint32_t seed) noexcept {
+    return xxhash32(value.data(), value.size(), seed);
+}
+
+template<>
+inline std::uint64_t hash_xx64<std::string>(const std::string& value, std::uint64_t seed) noexcept {
+    return xxhash64(value.data(), value.size(), seed);
+}
+
+template<>
+inline std::uint64_t hash_xx64<std::string_view>(const std::string_view& value, std::uint64_t seed) noexcept {
+    return xxhash64(value.data(), value.size(), seed);
+}
+
+#endif // BLUESTL_USE_STD_STRING_HASH
+
 } // namespace bluestl

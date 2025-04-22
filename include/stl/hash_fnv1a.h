@@ -39,4 +39,48 @@ constexpr std::uint64_t hash_fnv1a64(const T& value) noexcept {
     return fnv1a_hash64(&value, sizeof(T));
 }
 
+// C文字列（const char*）向けの特殊化
+inline std::uint32_t hash_fnv1a(const char* str) noexcept {
+    if (!str) return 0;
+    std::size_t len = 0;
+    while (str[len]) ++len;
+    return fnv1a_hash(str, len);
+}
+
+// 64bit版も同様に特殊化
+inline std::uint64_t hash_fnv1a64(const char* str) noexcept {
+    if (!str) return 0;
+    std::size_t len = 0;
+    while (str[len]) ++len;
+    return fnv1a_hash64(str, len);
+}
+
+#if defined(BLUESTL_USE_STD_STRING_HASH)
+
+// std::string向けの特殊化
+#include <string>
+template<>
+inline std::uint32_t hash_fnv1a<std::string>(const std::string& value) noexcept {
+    return fnv1a_hash(value.data(), value.size());
+}
+
+// std::string_view向けの特殊化
+#include <string_view>
+template<>
+inline std::uint32_t hash_fnv1a<std::string_view>(const std::string_view& value) noexcept {
+    return fnv1a_hash(value.data(), value.size());
+}
+
+template<>
+inline std::uint64_t hash_fnv1a64<std::string>(const std::string& value) noexcept {
+    return fnv1a_hash64(value.data(), value.size());
+}
+
+template<>
+inline std::uint64_t hash_fnv1a64<std::string_view>(const std::string_view& value) noexcept {
+    return fnv1a_hash64(value.data(), value.size());
+}
+
+#endif // BLUESTL_USE_STD_STRING_HASH
+
 } // namespace bluestl
