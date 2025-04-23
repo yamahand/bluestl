@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <utility>
+#include "assert_handler.h"
 #include "hash.h"
+#include "pair.h"
 
 namespace bluestl
 {
@@ -14,14 +16,14 @@ namespace bluestl
 	public:
 		using key_type = Key;
 		using mapped_type = T;
-		using value_type = std::pair<const Key, T>;
+		using value_type = pair<const Key, T>;
 		using size_type = std::size_t;
 		using reference = value_type &;
 		using const_reference = const value_type &;
 
 		struct bucket
 		{
-			std::pair<Key, T> kv;
+			pair<Key, T> kv;
 			bool used;
 			constexpr bucket() noexcept : kv(), used(false) {}
 		};
@@ -55,7 +57,7 @@ namespace bluestl
 			return buckets_[idx].kv.second;
 		}
 
-		constexpr std::pair<value_type *, bool> insert(const Key &key, const T &value) noexcept
+		constexpr pair<value_type *, bool> insert(const Key &key, const T &value) noexcept
 		{
 			size_type hash = bluestl::hash(key) % Capacity;
 			for (size_type i = 0; i < Capacity; ++i)

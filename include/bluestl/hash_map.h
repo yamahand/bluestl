@@ -6,9 +6,9 @@
 #include <cassert>
 #include <iterator>
 
-#include "hash.h"
-#include "log_interface.h"
 #include "log_macros.h"
+#include "hash.h"
+#include "pair.h"
 
 namespace bluestl {
 
@@ -16,7 +16,7 @@ template <typename Key, typename T, typename Allocator>
 class hash_map {
     // Bucket structure to store key-value pairs
     struct bucket {
-        std::pair<Key, T> kv;
+        pair<Key, T> kv;
         bool used = false;
         bool deleted = false; // For tombstone marking
     };
@@ -28,7 +28,7 @@ class hash_map {
 public:
     using key_type = Key;
     using mapped_type = T;
-    using value_type = std::pair<const Key, T>;
+    using value_type = pair<const Key, T>;
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
     using allocator_type = Allocator;
@@ -46,8 +46,8 @@ public:
     public:
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::conditional_t<IsConst, 
-                                            const std::pair<const Key, T>, 
-                                            std::pair<const Key, T>>;
+                                            const pair<const Key, T>, 
+                                            pair<const Key, T>>;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type*;
         using reference = value_type&;
@@ -284,7 +284,7 @@ public:
     }
     
     // Insert key-value pair
-    std::pair<iterator, bool> insert(const key_type& key, const mapped_type& value) noexcept {
+    pair<iterator, bool> insert(const key_type& key, const mapped_type& value) noexcept {
         // Check if we need to rehash
         if (should_rehash()) rehash(calculate_new_capacity());
         
