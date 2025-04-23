@@ -1,5 +1,5 @@
 ﻿#include <catch2/catch_test_macros.hpp>
-#include "../include/stl/fixed_hash_map.h"
+#include "bluestl/fixed_hash_map.h"
 
 using namespace bluestl;
 

@@ -1,6 +1,6 @@
 ﻿// テストコード for hash_map.h
-#include "../include/stl/hash_map.h"
-#include "../include/stl/allocator.h"
+#include "bluestl/hash_map.h"
+#include "bluestl/allocator.h"
 #include <catch2/catch_test_macros.hpp>
 #include <string>
 #include "test_allocator.h"

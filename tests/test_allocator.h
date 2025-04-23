@@ -2,8 +2,8 @@
 
 #include <cstdio>
 #include <print>
-#include "../include/stl/allocator.h"
-#include "../include/stl/fixed_hash_map.h"
+#include "../include/bluestl/allocator.h"
+#include "../include/bluestl/fixed_hash_map.h"
 
 class TestAllocator : public bluestl::allocator {
 public:

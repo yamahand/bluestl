@@ -1,10 +1,10 @@
 ﻿#include <catch2/catch_test_macros.hpp>
 
 #define BLUESTL_USE_STD_STRING_HASH
-#include "../include/stl/hash_fnv1a.h"
-#include "../include/stl/hash_xx.h"
-#include "../include/stl/hash_murmur.h"
-#include "../include/stl/hash.h"
+#include "bluestl/hash_fnv1a.h"
+#include "bluestl/hash_xx.h"
+#include "bluestl/hash_murmur.h"
+#include "bluestl/hash.h"
 #include <string>
 
 using namespace bluestl;

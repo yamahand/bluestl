@@ -13,7 +13,7 @@
 #include <cstdlib>
 #endif // _HAS_CXX23
 
-#include "stl/assert_handler.h"
+#include "assert_handler.h"
 
 namespace bluestl
 {

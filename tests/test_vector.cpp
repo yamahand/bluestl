@@ -1,5 +1,5 @@
 ﻿#include <catch2/catch_test_macros.hpp>
-#include "../include/stl/vector.h"
+#include "bluestl/vector.h"
 #include "test_allocator.h"
 
 TEST_CASE("vector の基本操作", "[vector]") {
