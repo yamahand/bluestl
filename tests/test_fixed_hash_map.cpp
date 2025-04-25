@@ -3,8 +3,6 @@
 
 using namespace bluestl;
 
-#if 0
-
 TEST_CASE("fixed_hash_map の基本操作", "[hash_map][fixed]") {
     fixed_hash_map<int, int, 8> m;
     
@@ -53,5 +51,3 @@ TEST_CASE("fixed_hash_map の基本操作", "[hash_map][fixed]") {
         REQUIRE(m.empty());
     }
 }
-
-#endif
