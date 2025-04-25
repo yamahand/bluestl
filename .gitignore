@@ -38,3 +38,5 @@
 /build/
 runtime
 .vscode
+.vs
+out
