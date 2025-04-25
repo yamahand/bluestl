@@ -1,5 +1,4 @@
-﻿#pragma once
-#include "bluestl/pair.h"
+﻿#include "bluestl/pair.h"
 #include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <tuple>
@@ -102,7 +101,7 @@ TEST_CASE("pairのpiecewise_construct", "[pair][piecewise]") {
 TEST_CASE("pairのタプルからの構築", "[pair][tuple_ctor]") {
     std::tuple<int> t1(7);
     std::tuple<double> t2(3.14);
-    pair<int, double> p(t1, t2);
+    pair<int, double> p(bluestl::piecewise_construct, t1, t2);
     REQUIRE(p.first == 7);
     REQUIRE(p.second == 3.14);
 }
