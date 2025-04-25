@@ -21,6 +21,7 @@ class hash_map {
         bool deleted = false; // For tombstone marking
     };
 
+public:
     // Forward declaration of iterators
     template <bool IsConst>
     class hash_iterator;
