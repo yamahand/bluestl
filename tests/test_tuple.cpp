@@ -1,5 +1,4 @@
-﻿#pragma once
-#include "../include/bluestl/tuple.h"
+﻿#include "../include/bluestl/tuple.h"
 #include <catch2/catch_test_macros.hpp>
 #include <string>
 

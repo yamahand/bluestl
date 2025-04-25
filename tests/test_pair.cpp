@@ -1,7 +1,8 @@
-﻿#include "bluestl/pair.h"
-#include <catch2/catch_test_macros.hpp>
+﻿#include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <tuple>
+#include "bluestl/pair.h"
+#include "bluestl/tuple.h"
 
 using bluestl::pair;
 using bluestl::make_pair;
@@ -98,9 +99,17 @@ TEST_CASE("pairのpiecewise_construct", "[pair][piecewise]") {
     REQUIRE(p.second == 42);
 }
 
-TEST_CASE("pairのタプルからの構築", "[pair][tuple_ctor]") {
+TEST_CASE("pairのstd::tupleからの構築", "[pair][tuple_ctor]") {
     std::tuple<int> t1(7);
     std::tuple<double> t2(3.14);
+    pair<int, double> p(bluestl::piecewise_construct, t1, t2);
+    REQUIRE(p.first == 7);
+    REQUIRE(p.second == 3.14);
+}
+
+TEST_CASE("pairのタプルからの構築", "[pair][tuple_ctor]") {
+    bluestl::tuple<int> t1(7);
+    bluestl::tuple<double> t2(3.14);
     pair<int, double> p(bluestl::piecewise_construct, t1, t2);
     REQUIRE(p.first == 7);
     REQUIRE(p.second == 3.14);
