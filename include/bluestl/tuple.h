@@ -18,8 +18,14 @@ struct tuple_impl<Head, Tail...> {
     tuple_impl<Tail...> tail;
     constexpr tuple_impl() = default;
     constexpr tuple_impl(const Head& h, const Tail&... t) : value(h), tail(t...) {}
+
+    template <typename OtherTuple>
+    requires std::is_same_v<std::remove_cvref_t<OtherTuple>, tuple<Types...>>
+    constexpr tuple_impl(OtherTuple &&other) : value(std::forward<OtherTuple>(other).value) { }
+
     template <typename UHead, typename... UTail>
-    constexpr tuple_impl(UHead&& h, UTail&&... t) : value(std::forward<UHead>(h)), tail(std::forward<UTail>(t)...) {}
+    constexpr tuple_impl(UHead&& h, UTail&&... t)
+    requires (std::is_constructible_v<Head, UHead&&>) : value(std::forward<UHead>(h)), tail(std::forward<UTail>(t)...) {}
 };
 
 template <>
