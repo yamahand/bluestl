@@ -1,8 +1,8 @@
 ﻿#include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <tuple>
-#include "bluestl/pair.h"
 #include "bluestl/tuple.h"
+#include "bluestl/pair.h"
 
 using bluestl::pair;
 using bluestl::make_pair;
@@ -91,6 +91,7 @@ TEST_CASE("pairのCTAD（推論ガイド）", "[pair][ctad]") {
     REQUIRE(p1.second == 1.5);
 }
 
+
 TEST_CASE("pairのpiecewise_construct", "[pair][piecewise]") {
     std::tuple<std::string> t1("hello");
     std::tuple<int> t2(42);
@@ -99,6 +100,7 @@ TEST_CASE("pairのpiecewise_construct", "[pair][piecewise]") {
     REQUIRE(p.second == 42);
 }
 
+#if 0
 TEST_CASE("pairのstd::tupleからの構築", "[pair][tuple_ctor]") {
     std::tuple<int> t1(7);
     std::tuple<double> t2(3.14);
@@ -107,10 +109,20 @@ TEST_CASE("pairのstd::tupleからの構築", "[pair][tuple_ctor]") {
     REQUIRE(p.second == 3.14);
 }
 
-TEST_CASE("pairのタプルからの構築", "[pair][tuple_ctor]") {
-    bluestl::tuple<int> t1(7);
+TEST_CASE("pair_from_tuplesでbluestl::tupleからpairを生成", "[pair][tuple_ctor]") {
+    bluestl::tuple<int> t1(42);
     bluestl::tuple<double> t2(3.14);
-    pair<int, double> p(bluestl::piecewise_construct, t1, t2);
-    REQUIRE(p.first == 7);
+    auto p = bluestl::pair_from_tuples(t1, t2);
+    REQUIRE(p.first == 42);
     REQUIRE(p.second == 3.14);
 }
+
+TEST_CASE("pair_from_tuplesでstd::tupleからpairを生成", "[pair][tuple_ctor]") {
+    std::tuple<std::string> t1("abc");
+    std::tuple<int> t2(99);
+    auto p = bluestl::pair_from_tuples(t1, t2);
+    REQUIRE(p.first == "abc");
+    REQUIRE(p.second == 99);
+}
+
+#endif

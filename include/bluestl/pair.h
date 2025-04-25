@@ -17,8 +17,23 @@
 
 namespace bluestl
 {
+#if defined(_HAS_CXX20) && _HAS_CXX20
 	template <class T>
 	concept IsTupleLike = requires(T t) { std::get<0>(t); };
+#else
+	template <class T>
+	struct IsTupleLikeImpl {
+		private:
+			template <class U>
+			static auto test(int) -> decltype(std::get<0>(std::declval<U>()), std::true_type{});
+			template <class>
+			static auto test(...) -> std::false_type;
+		public:
+			static constexpr bool value = decltype(test<T>(0))::value;
+	};
+	template <class T>
+	constexpr bool IsTupleLike = IsTupleLikeImpl<T>::value;
+#endif
 
 	// piecewise_construct用タグ
 	struct piecewise_construct_t
@@ -237,4 +252,46 @@ namespace bluestl
 	{
 		using type = T2;
 	};
+
+	// tupleからpairを生成するユーティリティ関数
+#if defined(_HAS_CXX20) && _HAS_CXX20
+	template <class Tuple1, class Tuple2>
+	constexpr auto pair_from_tuples(Tuple1&& t1, Tuple2&& t2)
+		requires (IsTupleLike<Tuple1> && IsTupleLike<Tuple2>)
+	{
+		using First = std::remove_cvref_t<decltype(std::get<0>(t1))>;
+		using Second = std::remove_cvref_t<decltype(std::get<0>(t2))>;
+		return pair<First, Second>(std::get<0>(std::forward<Tuple1>(t1)), std::get<0>(std::forward<Tuple2>(t2)));
+	}
+#else
+	template <class Tuple1, class Tuple2,
+		std::enable_if_t<IsTupleLike<Tuple1> && IsTupleLike<Tuple2>, int> = 0>
+	constexpr auto pair_from_tuples(Tuple1&& t1, Tuple2&& t2)
+	{
+		using First = typename std::remove_cv<typename std::remove_reference<decltype(std::get<0>(t1))>::type>::type;
+		using Second = typename std::remove_cv<typename std::remove_reference<decltype(std::get<0>(t2))>::type>::type;
+		return pair<First, Second>(std::get<0>(std::forward<Tuple1>(t1)), std::get<0>(std::forward<Tuple2>(t2)));
+	}
+#endif
+#if 0
+	// bluestl::tuple用のstd::getオーバーロード
+	// これによりstd::get<0>(bluestl::tuple<...>)が使える
+	// tuple.hの定義に合わせて提供
+	template <std::size_t I, typename... Types>
+	constexpr auto& get(bluestl::tuple<Types...>& t) noexcept {
+		return bluestl::get<I>(t);
+	}
+	template <std::size_t I, typename... Types>
+	constexpr const auto& get(const bluestl::tuple<Types...>& t) noexcept {
+		return bluestl::get<I>(t);
+	}
+	template <std::size_t I, typename... Types>
+	constexpr auto&& get(bluestl::tuple<Types...>&& t) noexcept {
+		return bluestl::get<I>(std::move(t));
+	}
+	template <std::size_t I, typename... Types>
+	constexpr const auto&& get(const bluestl::tuple<Types...>&& t) noexcept {
+		return bluestl::get<I>(std::move(t));
+	}
+#endif
 }; // namespace bluestl
