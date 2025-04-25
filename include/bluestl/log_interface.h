@@ -6,7 +6,7 @@
 #include <source_location>
 #include <cstdio>
 #include <cstdlib>
-#include <print>
+//#include <print>
 #include "assert_handler.h"  // アサート機能をインクルード
 
 namespace bluestl {
