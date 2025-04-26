@@ -1,25 +1,83 @@
-﻿#pragma once
+﻿// -----------------------------------------------------------------------------
+// Bluestl optional.h
+// C++20準拠・STL風インターフェースの値の有無を表す型（optional）
+// -----------------------------------------------------------------------------
+/// @file optional.h
+/// @brief Bluestlプロジェクトのoptionalクラスを提供します。
+///
+/// Bluestlは、高速なコンパイル・実行、固定サイズコンテナ、STLの代替/補完を目指すC++20用ライブラリです。
+///
+/// @details
+/// optionalは、値が存在するかどうかを明示的に表現できる型です。
+/// - RTTIなし、例外なし、ヒープ割り当てなし、header-only設計
+/// - STL std::optionalに似たインターフェースを持ちますが、Bluestlの設計方針に従い、
+///   例外やRTTIを一切使用せず、最小限の依存で高速なデバッグ・ビルドを実現します。
+///
+/// 主な特徴:
+///   - C++20準拠、STL std::optional風のAPI
+///   - RTTI/例外/ヒープ割り当てなし
+///   - header-only、#pragma onceによるインクルードガード
+///   - has_value()で値の有無を判定
+///   - value()/operator*()/operator->()で値へアクセス
+///   - emplace()/reset()で値の構築・破棄
+///   - STL std::optionalとの違い: 例外非対応、RTTI非使用、最小限の実装
+///
+/// Bluestl全体の設計方針:
+///   - 高速なコンパイル・実行
+///   - RTTI/例外/ヒープ割り当てなし
+///   - header-only
+///   - STLに似たインターフェース
+///   - シンプルで明確なC++コード
+///   - 分離・粒度の細かい設計
+#pragma once
 
 #include <utility>
 #include <type_traits>
 
 namespace bluestl {
 
+/**
+ * @class optional
+ * @brief 値の有無を表す型。STL std::optional風インターフェース。
+ * @tparam T 保持する値の型
+ *
+ * - T型の値を「ある/なし」で保持
+ * - RTTI/例外/ヒープ割り当てなし
+ * - STL std::optional風インターフェース
+ * - has_value()で値の有無を判定
+ * - value()/operator*()/operator->()で値へアクセス
+ * - emplace()/reset()で値の構築・破棄
+ */
 template <typename T>
 class optional {
 public:
+    /**
+     * @brief デフォルトコンストラクタ。値を保持しない状態で初期化。
+     */
     constexpr optional() noexcept : has_value_(false) {}
 
+    /**
+     * @brief コピーコンストラクタ。値をコピーしてoptionalを構築。
+     * @param value コピー元の値
+     */
     constexpr optional(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>)
         : has_value_(true) {
         new (&storage_) T(value);
     }
 
+    /**
+     * @brief ムーブコンストラクタ。値をムーブしてoptionalを構築。
+     * @param value ムーブ元の値
+     */
     constexpr optional(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>)
         : has_value_(true) {
         new (&storage_) T(std::move(value));
     }
 
+    /**
+     * @brief optionalのコピーコンストラクタ。他のoptionalの値をコピー。
+     * @param other コピー元のoptional
+     */
     constexpr optional(const optional& other) noexcept(std::is_nothrow_copy_constructible_v<T>)
         : has_value_(other.has_value_) {
         if (has_value_) {
@@ -27,6 +85,10 @@ public:
         }
     }
 
+    /**
+     * @brief optionalのムーブコンストラクタ。他のoptionalの値をムーブ。
+     * @param other ムーブ元のoptional
+     */
     constexpr optional(optional&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
         : has_value_(other.has_value_) {
         if (has_value_) {
@@ -34,12 +96,20 @@ public:
         }
     }
 
+    /**
+     * @brief デストラクタ。値があれば破棄。
+     */
     constexpr ~optional() { reset(); }
 
+    /**
+     * @brief コピー代入演算子。他のoptionalの値をコピー。
+     * @param other コピー元のoptional
+     * @return *this
+     */
     constexpr optional& operator=(const optional& other) noexcept(std::is_nothrow_copy_assignable_v<T> && std::is_nothrow_copy_constructible_v<T>) {
         if (this != &other) {
             if (has_value_ && other.has_value_) {
-                **get() = *other;
+                *get() = *other;
             } else if (has_value_) {
                 reset();
             } else if (other.has_value_) {
@@ -49,10 +119,15 @@ public:
         return *this;
     }
 
+    /**
+     * @brief ムーブ代入演算子。他のoptionalの値をムーブ。
+     * @param other ムーブ元のoptional
+     * @return *this
+     */
     constexpr optional& operator=(optional&& other) noexcept(std::is_nothrow_move_assignable_v<T> && std::is_nothrow_move_constructible_v<T>) {
         if (this != &other) {
             if (has_value_ && other.has_value_) {
-                **get() = std::move(*other);
+                *get() = std::move(*other);
             } else if (has_value_) {
                 reset();
             } else if (other.has_value_) {
@@ -62,6 +137,12 @@ public:
         return *this;
     }
 
+    /**
+     * @brief emplace: 新しい値を構築し、optionalに格納。以前の値は破棄される。
+     * @tparam Args コンストラクタ引数型
+     * @param args コンストラクタ引数
+     * @return 構築された値への参照
+     */
     template <typename... Args>
     constexpr T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>) {
         reset();
@@ -70,6 +151,9 @@ public:
         return **this;
     }
 
+    /**
+     * @brief reset: 値を破棄し、値なし状態にする。
+     */
     constexpr void reset() noexcept {
         if (has_value_) {
             get()->~T();
@@ -77,14 +161,31 @@ public:
         }
     }
 
+    /**
+     * @brief operator->: 値へのポインタアクセス。
+     * @return 値へのポインタ
+     */
     constexpr T* operator->() noexcept { return get(); }
     constexpr const T* operator->() const noexcept { return get(); }
+
+    /**
+     * @brief operator*: 値への参照アクセス。
+     * @return 値への参照
+     */
     constexpr T& operator*() noexcept { return *get(); }
     constexpr const T& operator*() const noexcept { return *get(); }
 
+    /**
+     * @brief operator bool: 値が存在する場合true。
+     * @return 値が存在すればtrue
+     */
     constexpr explicit operator bool() const noexcept { return has_value_; }
     constexpr bool has_value() const noexcept { return has_value_; }
 
+    /**
+     * @brief value: 値を返す。値がなければアサート。
+     * @return 値への参照
+     */
     constexpr T& value() {
         BLUESTL_ASSERT(has_value());
         return *get();
@@ -96,9 +197,13 @@ public:
 
 private:
     using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
-    storage_t storage_;
-    bool has_value_;
+    storage_t storage_; ///< 値のストレージ
+    bool has_value_;    ///< 値の有無
 
+    /**
+     * @brief get: 値へのポインタを返す（内部用）。
+     * @return 値へのポインタ
+     */
     constexpr T* get() noexcept { return reinterpret_cast<T*>(&storage_); }
     constexpr const T* get() const noexcept { return reinterpret_cast<const T*>(&storage_); }
 };
