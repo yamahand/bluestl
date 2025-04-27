@@ -27,6 +27,7 @@
 #include "assert_handler.h"
 #include "hash.h"
 #include "pair.h"
+#include "optional.h"
 
 namespace bluestl
 {
@@ -133,6 +134,54 @@ public:
      */
     constexpr T &at(const Key &key) noexcept
     {
+        size_type idx = find_index(key);
+        if (idx == npos)
+            return dummy();
+        return buckets_[idx].kv.second;
+    }
+    /**
+     * @brief キーに対応する値への参照をoptionalで返します。
+     * @param key 検索するキー
+     * @return optional<mapped_type&> 値が存在すれば参照、なければ値なし
+     * @details 例外は発生しません。
+     */
+    constexpr bluestl::optional<T&> try_get(const Key& key) noexcept {
+        size_type idx = find_index(key);
+        if (idx != npos) {
+            return bluestl::optional<T&>(buckets_[idx].kv.second);
+        }
+        return bluestl::optional<T&>();
+    }
+    /**
+     * @brief キーに対応する値へのconst参照をoptionalで返します。
+     * @param key 検索するキー
+     * @return optional<const mapped_type&> 値が存在すればconst参照、なければ値なし
+     * @details 例外は発生しません。
+     */
+    constexpr bluestl::optional<const T&> try_get(const Key& key) const noexcept {
+        size_type idx = find_index(key);
+        if (idx != npos) {
+            return bluestl::optional<const T&>(buckets_[idx].kv.second);
+        }
+        return bluestl::optional<const T&>();
+    }
+    /**
+     * @brief キーが存在するか判定します。
+     * @param key 検索するキー
+     * @retval true 存在する
+     * @retval false 存在しない
+     * @details 例外は発生しません。
+     */
+    constexpr bool contains(const Key& key) const noexcept {
+        return find_index(key) != npos;
+    }
+    /**
+     * @brief キーに対応する値へのconst参照を返します。
+     * @param key 検索するキー
+     * @return 対応する値へのconst参照。存在しない場合はダミー値へのconst参照を返します。
+     * @details 例外は発生しません。
+     */
+    constexpr const T& at(const Key& key) const noexcept {
         size_type idx = find_index(key);
         if (idx == npos)
             return dummy();
