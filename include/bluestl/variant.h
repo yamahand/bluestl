@@ -37,6 +37,8 @@
 #include <utility>
 #include <cstddef>
 
+#include "assert_handler.h"
+
 namespace bluestl {
 /**
  * @class variant
@@ -55,7 +57,10 @@ template <typename... Types>
 class variant {
     static_assert(sizeof...(Types) > 0, "variant must have at least one alternative");
 
-    using max_align_t = std::aligned_union_t<0, Types...>;
+    
+    // 最大サイズと最大アラインメントを計算
+    static constexpr size_t max_size = std::max({ sizeof(Types)... });
+    static constexpr size_t max_align = std::max({ alignof(Types)... });
     static constexpr size_t type_count = sizeof...(Types);
 
     template <typename T, typename... Rest>
@@ -114,21 +119,30 @@ public:
      * @brief コピーコンストラクタ
      * @param other コピー元variant
      */
-    variant(const variant& other) noexcept((std::is_nothrow_copy_constructible_v<Types> && ...)) : index_(other.index_) {
-        if (!other.valueless_by_exception()) {
-            other.visit([this](const auto& v) { this->emplace<std::decay_t<decltype(v)>>(v); });
+    variant(const variant &other) {
+        // otherがvaluelessなら自分もvaluelessに
+        if (other.valueless_by_exception())
+        {
+            reset();
+            return;
         }
+        // 通常のコピー処理
+        emplace_by_index(other.index(), other);
     }
 
     /**
      * @brief ムーブコンストラクタ
      * @param other ムーブ元variant
      */
-    variant(variant&& other) noexcept((std::is_nothrow_move_constructible_v<Types> && ...)) : index_(other.index_) {
-        if (!other.valueless_by_exception()) {
+	variant(variant&& other) noexcept((std::is_nothrow_move_constructible_v<Types> && ...)) : index_(npos) {
+		if (!other.valueless_by_exception()) {
             other.visit([this](auto&& v) { this->emplace<std::decay_t<decltype(v)>>(std::move(v)); });
+            other.reset(); // ムーブ後の状態をリセット
         }
-    }
+        else {
+            index_ = npos;
+        }
+	}
 
     /**
      * @brief デストラクタ
@@ -140,14 +154,13 @@ public:
      * @param other コピー元variant
      * @return *this
      */
-    variant& operator=(const variant& other) noexcept((std::is_nothrow_copy_assignable_v<Types> && ...)) {
-        if (this != &other) {
-            if (other.valueless_by_exception()) {
-                reset();
-            } else {
-                other.visit([this](const auto& v) { this->emplace<std::decay_t<decltype(v)>>(v); });
-            }
+    variant& operator=(const variant& other) {
+        if (this == &other) return *this;
+        if (other.valueless_by_exception()) {
+            reset();
+            return *this;
         }
+        emplace_by_index(other.index(), other);
         return *this;
     }
 
@@ -278,11 +291,11 @@ public:
 
 private:
     static constexpr size_t npos = static_cast<size_t>(-1);
-    max_align_t storage_;
+    alignas(max_align) std::byte storage_[max_size];
     size_t index_ = npos;
 
     void destroy() noexcept {
-        if (valueless_by_exception()) return;
+        if (valueless_by_exception() || index_ == npos) return;
         destroy_impl(index_);
     }
 
@@ -325,6 +338,23 @@ private:
             }
         } else {
             return visit_switch_impl<Self, Visitor, Rest...>(self, std::forward<Visitor>(vis), idx, i + 1);
+        }
+    }
+
+    // emplace_by_indexの実装（テンプレート再帰）
+    template <size_t I = 0>
+    void emplace_by_index(size_t idx, const variant& other) {
+        if constexpr (I < sizeof...(Types)) {
+            if (idx == I) {
+                using T = std::tuple_element_t<I, std::tuple<Types...>>;
+                const T* ptr = other.template get_if<T>();
+                BLUESTL_ASSERT(ptr != nullptr);
+                emplace<T>(*ptr);
+            } else {
+                emplace_by_index<I + 1>(idx, other);
+            }
+        } else {
+            BLUESTL_ASSERT(false); // 不正なインデックス
         }
     }
 };

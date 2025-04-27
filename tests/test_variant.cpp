@@ -8,6 +8,8 @@
 #include <string>
 #include <type_traits>
 
+#include <variant>
+
 TEST_CASE("bluestl::variant デフォルト構築とvalueless", "[variant]") {
     using bluestl::variant;
     variant<int, double> v;
@@ -33,6 +35,9 @@ TEST_CASE("bluestl::variant コピー・ムーブ・代入", "[variant]") {
     variant<int, std::string> v2 = v1;
     REQUIRE(v2.holds_alternative<std::string>());
     REQUIRE(*v2.get_if<std::string>() == "test");
+
+    variant<int, float> vf = 1.0f;
+    variant<int, float> vf2 = std::move(vf);
 
     variant<int, std::string> v3 = std::move(v2);
     REQUIRE(v3.holds_alternative<std::string>());
