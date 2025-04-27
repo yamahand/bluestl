@@ -9,6 +9,7 @@
 #include "log_macros.h"
 #include "hash.h"
 #include "pair.h"
+#include "optional.h"
 
 namespace bluestl {
 
@@ -282,6 +283,32 @@ public:
         BLUESTL_ASSERT(idx != npos && "hash_map::at key does not exist");
         if (idx == npos) return dummy_value();
         return buckets_[idx].kv.second;
+    }
+
+    /**
+     * @brief キーに対応する値への参照をoptionalで返す。見つからなければ値なし。
+     * @param key 検索するキー
+     * @return optional<mapped_type&> 値が存在すれば参照、なければ値なし
+     */
+    optional<mapped_type&> try_get(const key_type& key) noexcept {
+        size_type idx = find_index(key);
+        if (idx != npos) {
+            return optional<mapped_type&>(buckets_[idx].kv.second);
+        }
+        return optional<mapped_type&>();
+    }
+
+    /**
+     * @brief キーに対応する値へのconst参照をoptionalで返す。見つからなければ値なし。
+     * @param key 検索するキー
+     * @return optional<const mapped_type&> 値が存在すればconst参照、なければ値なし
+     */
+    optional<const mapped_type&> try_get(const key_type& key) const noexcept {
+        size_type idx = find_index(key);
+        if (idx != npos) {
+            return optional<const mapped_type&>(buckets_[idx].kv.second);
+        }
+        return optional<const mapped_type&>();
     }
     
     // Insert key-value pair

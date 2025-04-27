@@ -34,6 +34,8 @@
 #include <utility>
 #include <type_traits>
 
+#include "assert_handler.h"
+
 namespace bluestl {
 
 /**
@@ -206,6 +208,58 @@ private:
      */
     constexpr T* get() noexcept { return reinterpret_cast<T*>(&storage_); }
     constexpr const T* get() const noexcept { return reinterpret_cast<const T*>(&storage_); }
+};
+
+/**
+ * @class optional<T&>
+ * @brief 参照型T&用のoptional特殊化。値の有無をポインタで管理。
+ * @tparam T 参照先の型
+ */
+template <typename T>
+class optional<T&> {
+public:
+    /**
+     * @brief デフォルトコンストラクタ。値なし状態で初期化。
+     */
+    constexpr optional() noexcept : ptr_(nullptr) {}
+    /**
+     * @brief 参照からoptionalを構築。
+     * @param ref 参照
+     */
+    constexpr optional(T& ref) noexcept : ptr_(&ref) {}
+    /**
+     * @brief コピーコンストラクタ。
+     * @param other コピー元
+     */
+    constexpr optional(const optional& other) noexcept : ptr_(other.ptr_) {}
+    /**
+     * @brief has_value: 値が存在するか判定。
+     * @return 値があればtrue
+     */
+    constexpr bool has_value() const noexcept { return ptr_ != nullptr; }
+    /**
+     * @brief operator bool: 値が存在すればtrue。
+     */
+    constexpr explicit operator bool() const noexcept { return has_value(); }
+    /**
+     * @brief value: 値への参照を返す。
+     * @return 値への参照
+     */
+    constexpr T& value() const noexcept { BLUESTL_ASSERT(ptr_); return *ptr_; }
+    /**
+     * @brief operator*: 値への参照。
+     */
+    constexpr T& operator*() const noexcept { return value(); }
+    /**
+     * @brief operator->: 値へのポインタ。
+     */
+    constexpr T* operator->() const noexcept { BLUESTL_ASSERT(ptr_); return ptr_; }
+    /**
+     * @brief reset: 値なし状態にする。
+     */
+    void reset() noexcept { ptr_ = nullptr; }
+private:
+    T* ptr_;
 };
 
 } // namespace bluestl

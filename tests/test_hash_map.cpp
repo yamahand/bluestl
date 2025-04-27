@@ -1,4 +1,5 @@
 ﻿// テストコード for hash_map.h
+#include "bluestl/optional.h"
 #include "bluestl/hash_map.h"
 #include "bluestl/allocator.h"
 #include <catch2/catch_test_macros.hpp>
@@ -371,4 +372,37 @@ TEST_CASE("hash_map クリアと再利用のテスト", "[hash_map]")
     CHECK(map.contains(5));
     CHECK(map[4] == "four");
     CHECK(map[5] == "five");
+}
+
+TEST_CASE("hash_map try_getのテスト", "[hash_map]")
+{
+    auto alloc = TestAllocator("test_hash_map_try_get");
+    bluestl::hash_map<int, std::string, bluestl::allocator> map(alloc);
+
+    map.insert(1, "one");
+    map.insert(2, "two");
+
+    SECTION("存在するキーでtry_getが値を返す")
+    {
+        auto opt = map.try_get(1);
+        CHECK(opt.has_value());
+        CHECK(*opt == "one");
+        // 参照であることの確認（値を書き換える）
+        *opt = "ONE";
+        CHECK(map[1] == "ONE");
+    }
+
+    SECTION("存在しないキーでtry_getが値なしを返す")
+    {
+        auto opt = map.try_get(3);
+        CHECK_FALSE(opt.has_value());
+    }
+
+    SECTION("const hash_mapでのtry_get")
+    {
+        const auto& cmap = map;
+        auto opt = cmap.try_get(2);
+        CHECK(opt.has_value());
+        CHECK(*opt == "two");
+    }
 }
