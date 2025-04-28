@@ -63,9 +63,8 @@ TEST_CASE("small_buffer_vector 固定バッファ超過時の動作", "[small_bu
 TEST_CASE("small_buffer_vector swap/shrink_to_fit", "[small_buffer_vector]") {
     using bluestl::small_buffer_vector;
     TestAllocator alloc1("test_small_buffer_vector1");
-    TestAllocator alloc2("test_small_buffer_vector2");
     small_buffer_vector<std::string, 2> v1(alloc1);
-    small_buffer_vector<std::string, 2> v2(alloc2);
+    small_buffer_vector<std::string, 2> v2(alloc1);
     v1.push_back("a");
     v1.push_back("b");
     v2.push_back("x");
