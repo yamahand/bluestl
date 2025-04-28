@@ -207,8 +207,11 @@ public:
     }
     /**
      * @brief swap
+     * @param other 入れ替え先small_buffer_vector
+     * @details アロケータが異なる場合はアサートで停止します。
      */
     void swap(small_buffer_vector& other) noexcept {
+        BLUESTL_ASSERT(&m_allocator == &other.m_allocator);
         if (this == &other) return;
         if (m_data == reinterpret_cast<T*>(m_small_buffer) && other.m_data == reinterpret_cast<T*>(other.m_small_buffer)) {
             // 両方スタックバッファ

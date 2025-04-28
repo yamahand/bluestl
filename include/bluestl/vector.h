@@ -349,9 +349,11 @@ public:
     /**
      * @brief vector同士の内容を入れ替え
      * @param other 入れ替え先vector
+     * @details アロケータが異なる場合はアサートで停止します。
      */
     void swap(vector &other) noexcept
     {
+        BLUESTL_ASSERT(&m_allocator == &other.m_allocator);
         using std::swap;
         swap(m_data, other.m_data);
         swap(m_size, other.m_size);
