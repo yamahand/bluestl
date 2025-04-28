@@ -67,6 +67,14 @@ public:
      * @brief デフォルトコンストラクタは禁止（アロケータ必須）
      */
     vector() = delete;
+
+    /**
+     * @brief アロケータのみを受け取るコンストラクタ
+     * @param allocator 使用するアロケータ
+     */
+     explicit vector(Allocator &allocator)
+     : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {}
+
     /**
      * @brief コピーコンストラクタ
      * @param other コピー元vector
@@ -123,13 +131,6 @@ public:
         }
         other.clear();
     }
-
-    /**
-     * @brief アロケータのみを受け取るコンストラクタ
-     * @param allocator 使用するアロケータ
-     */
-    explicit vector(Allocator &allocator)
-        : m_allocator(allocator), m_data(nullptr), m_size(0), m_capacity(0) {}
 
     /**
      * @brief コピー代入演算子
