@@ -19,9 +19,9 @@ struct tuple_impl<Head, Tail...> {
     constexpr tuple_impl() = default;
     constexpr tuple_impl(const Head& h, const Tail&... t) : value(h), tail(t...) {}
 
-    template <typename OtherTuple>
-    requires std::is_same_v<std::remove_cvref_t<OtherTuple>, tuple<Types...>>
-    constexpr tuple_impl(OtherTuple &&other) : value(std::forward<OtherTuple>(other).value) { }
+    //template <typename OtherTuple>
+    //requires std::is_same_v<std::remove_cvref_t<OtherTuple>, tuple<Types...>>
+    //constexpr tuple_impl(OtherTuple &&other) : value(std::forward<OtherTuple>(other).value) { }
 
     template <typename UHead, typename... UTail>
     constexpr tuple_impl(UHead&& h, UTail&&... t)

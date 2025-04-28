@@ -40,6 +40,19 @@
 #include "assert_handler.h"
 
 namespace bluestl {
+
+// 型リストから最大値を計算するメタ関数
+template <size_t A>
+constexpr size_t static_max() { return A; }
+template <size_t A, size_t B, size_t... Rest>
+constexpr size_t static_max() {
+    if constexpr (sizeof...(Rest) == 0)
+        return A > B ? A : B;
+    else
+        return static_max<(A > B ? A : B), Rest...>();
+}
+
+
 /**
  * @class variant
  * @brief 型安全なユニオン型。STL std::variant風インターフェース。
@@ -59,8 +72,8 @@ class variant {
 
     
     // 最大サイズと最大アラインメントを計算
-    static constexpr size_t max_size = std::max({ sizeof(Types)... });
-    static constexpr size_t max_align = std::max({ alignof(Types)... });
+    static constexpr size_t max_size = static_max<sizeof(Types)...>();
+    static constexpr size_t max_align = static_max<alignof(Types)...>();
     static constexpr size_t type_count = sizeof...(Types);
 
     template <typename T, typename... Rest>
