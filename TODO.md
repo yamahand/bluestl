@@ -14,7 +14,7 @@
 - [x] optional  
   値の有無を明示的に扱うための型。
 
-- [ ] variant  
+- [x] variant  
   複数型のいずれかを格納できる型。状態管理やイベントデータなどで利用。
 
 - [ ] function / delegate  
