@@ -52,12 +52,12 @@ TEST_CASE("small_buffer_vector 固定バッファ超過時の動作", "[small_bu
     vec.push_back(1);
     vec.push_back(2);
     REQUIRE(vec.capacity() == 2);
-    vec.push_back(3); // ここでヒープ確保
+    vec.push_back(3);  // ここでヒープ確保
     REQUIRE(vec.size() == 3);
     REQUIRE(vec.capacity() > 2);
     REQUIRE(vec[2] == 3);
     vec.shrink_to_fit();
-    REQUIRE((vec.capacity() == 3 || vec.capacity() == 2)); // shrink_to_fitでスタックに戻るかヒープ縮小
+    REQUIRE((vec.capacity() == 3 || vec.capacity() == 2));  // shrink_to_fitでスタックに戻るかヒープ縮小
 }
 
 TEST_CASE("small_buffer_vector swap/shrink_to_fit", "[small_buffer_vector]") {
@@ -69,7 +69,7 @@ TEST_CASE("small_buffer_vector swap/shrink_to_fit", "[small_buffer_vector]") {
     v1.push_back("b");
     v2.push_back("x");
     v2.push_back("y");
-    v2.push_back("z"); // v2はヒープ確保
+    v2.push_back("z");  // v2はヒープ確保
     v1.swap(v2);
     REQUIRE(v1.size() == 3);
     REQUIRE(v1[0] == "x");

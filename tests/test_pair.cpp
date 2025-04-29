@@ -4,8 +4,8 @@
 #include "bluestl/tuple.h"
 #include "bluestl/pair.h"
 
-using bluestl::pair;
 using bluestl::make_pair;
+using bluestl::pair;
 using bluestl::swap;
 
 TEST_CASE("pairの基本動作", "[pair]") {
@@ -83,14 +83,12 @@ TEST_CASE("pairの<=>（宇宙船演算子）", "[pair][cxx20]") {
 }
 #endif
 
-
 TEST_CASE("pairのCTAD（推論ガイド）", "[pair][ctad]") {
-    pair p1(10, 1.5); // int, double
+    pair p1(10, 1.5);  // int, double
     static_assert(std::is_same_v<decltype(p1), pair<int, double>>);
     REQUIRE(p1.first == 10);
     REQUIRE(p1.second == 1.5);
 }
-
 
 TEST_CASE("pairのpiecewise_construct", "[pair][piecewise]") {
     std::tuple<std::string> t1("hello");

@@ -88,14 +88,14 @@ TEST_CASE("bluestl::variant 入れ子variant", "[variant]") {
     REQUIRE(*inner->get_if<std::string>() == "nest");
 }
 
-//TEST_CASE("bluestl::variant 参照型の保持", "[variant]") {
-//    using bluestl::variant;
-//    int x = 10;
-//    variant<int&, double> v(x);
-//    REQUIRE(v.holds_alternative<int&>());
-//    *v.get_if<int>() = 20;
-//    REQUIRE(x == 20);
-//}
+// TEST_CASE("bluestl::variant 参照型の保持", "[variant]") {
+//     using bluestl::variant;
+//     int x = 10;
+//     variant<int&, double> v(x);
+//     REQUIRE(v.holds_alternative<int&>());
+//     *v.get_if<int>() = 20;
+//     REQUIRE(x == 20);
+// }
 
 TEST_CASE("bluestl::variant move only型のサポート", "[variant]") {
     using bluestl::variant;
@@ -107,7 +107,7 @@ TEST_CASE("bluestl::variant move only型のサポート", "[variant]") {
         MoveOnly(const MoveOnly&) = delete;
         MoveOnly& operator=(const MoveOnly&) = delete;
     };
-    variant<MoveOnly, int> v(MoveOnly{42});
+    variant<MoveOnly, int> v(MoveOnly{ 42 });
     REQUIRE(v.holds_alternative<MoveOnly>());
     REQUIRE(v.get_if<MoveOnly>()->v == 42);
 }

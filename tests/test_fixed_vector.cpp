@@ -16,14 +16,14 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
     SECTION("要素の追加(push_back, ムーブ, emplace_back)") {
         fixed_vector<std::string, 3> v;
         std::string s = "abc";
-        REQUIRE(v.push_back(s)); // コピー
-        REQUIRE(v.push_back(std::move(s))); // ムーブ
+        REQUIRE(v.push_back(s));             // コピー
+        REQUIRE(v.push_back(std::move(s)));  // ムーブ
         REQUIRE(v.emplace_back(3, 'x'));
         REQUIRE(v.size() == 3);
         REQUIRE(v[0] == "abc");
         REQUIRE(v[1] == "abc");
         REQUIRE(v[2] == "xxx");
-        REQUIRE_FALSE(v.push_back("overflow")); // 容量超過
+        REQUIRE_FALSE(v.push_back("overflow"));  // 容量超過
     }
 
     SECTION("front/back/atの正常系") {
@@ -71,7 +71,7 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
         REQUIRE(v.size() == 1);
         v.clear();
         REQUIRE(v.size() == 0);
-        v.pop_back(); // 空でもクラッシュしない
+        v.pop_back();  // 空でもクラッシュしない
         REQUIRE(v.size() == 0);
     }
 
@@ -113,8 +113,8 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
     }
 
     SECTION("比較演算子") {
-        fixed_vector<int, 5> v1 = {100, 200};
-        fixed_vector<int, 5> v3 = {100, 200};
+        fixed_vector<int, 5> v1 = { 100, 200 };
+        fixed_vector<int, 5> v3 = { 100, 200 };
         REQUIRE(v1 == v3);
         REQUIRE_FALSE(v1 != v3);
         v3.push_back(300);
@@ -125,7 +125,7 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
     }
 
     SECTION("コピー・ムーブセマンティクス") {
-        fixed_vector<int, 5> v1 = {100, 200};
+        fixed_vector<int, 5> v1 = { 100, 200 };
         fixed_vector<int, 5> v4(v1);
         REQUIRE(v4 == v1);
         fixed_vector<int, 5> v5(std::move(v4));
@@ -139,10 +139,10 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
     }
 
     SECTION("イニシャライザリスト") {
-        fixed_vector<int, 5> v8{1, 2, 3, 4, 5};
+        fixed_vector<int, 5> v8{ 1, 2, 3, 4, 5 };
         REQUIRE(v8.size() == 5);
         for (int i = 0; i < 5; ++i) {
-            REQUIRE(v8[i] == i+1);
+            REQUIRE(v8[i] == i + 1);
         }
     }
 
@@ -152,8 +152,14 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
             MoveOnly(int x) : v(x) {}
             MoveOnly(const MoveOnly&) = delete;
             MoveOnly& operator=(const MoveOnly&) = delete;
-            MoveOnly(MoveOnly&& o) noexcept : v(o.v) { o.v = -1; }
-            MoveOnly& operator=(MoveOnly&& o) noexcept { v = o.v; o.v = -1; return *this; }
+            MoveOnly(MoveOnly&& o) noexcept : v(o.v) {
+                o.v = -1;
+            }
+            MoveOnly& operator=(MoveOnly&& o) noexcept {
+                v = o.v;
+                o.v = -1;
+                return *this;
+            }
         };
         fixed_vector<MoveOnly, 2> v;
         v.emplace_back(1);

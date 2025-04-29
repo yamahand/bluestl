@@ -34,7 +34,7 @@ TEST_CASE("fixed_hash_map の基本操作", "[fixed_hash_map]") {
         m[2] = "two";
         REQUIRE(m[2] == "two");
         REQUIRE(m.at(2) == "two");
-        REQUIRE(m.at(999) == ""); // dummy値
+        REQUIRE(m.at(999) == "");  // dummy値
     }
     SECTION("try_get/contains") {
         m.insert(3, "three");

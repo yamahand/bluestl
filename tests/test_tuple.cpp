@@ -4,9 +4,9 @@
 
 TEST_CASE("tupleの基本動作", "[tuple]") {
     bluestl::tuple<int, double, char> t1(1, 2.5, 'a');
-	auto t11 = bluestl::get<0>(t1);
-	auto t12 = bluestl::get<1>(t1);
-	auto t13 = bluestl::get<2>(t1);
+    auto t11 = bluestl::get<0>(t1);
+    auto t12 = bluestl::get<1>(t1);
+    auto t13 = bluestl::get<2>(t1);
     REQUIRE(bluestl::get<0>(t1) == 1);
     REQUIRE(bluestl::get<1>(t1) == 2.5);
     REQUIRE(bluestl::get<2>(t1) == 'a');
@@ -99,7 +99,9 @@ TEST_CASE("大量の要素を持つtuple", "[tuple]") {
 
 TEST_CASE("例外安全性のテスト", "[tuple]") {
     struct ThrowingType {
-        ThrowingType() { throw std::runtime_error("例外発生"); }
+        ThrowingType() {
+            throw std::runtime_error("例外発生");
+        }
     };
 
     REQUIRE_THROWS_AS((bluestl::tuple<int, ThrowingType>(1)), std::runtime_error);
