@@ -59,28 +59,28 @@ inline std::uint64_t hash_fnv1a64(const char* str) noexcept {
 
 // std::string向けの特殊化
 #include <string>
-template<>
+template <>
 inline std::uint32_t hash_fnv1a<std::string>(const std::string& value) noexcept {
     return fnv1a_hash(value.data(), value.size());
 }
 
 // std::string_view向けの特殊化
 #include <string_view>
-template<>
+template <>
 inline std::uint32_t hash_fnv1a<std::string_view>(const std::string_view& value) noexcept {
     return fnv1a_hash(value.data(), value.size());
 }
 
-template<>
+template <>
 inline std::uint64_t hash_fnv1a64<std::string>(const std::string& value) noexcept {
     return fnv1a_hash64(value.data(), value.size());
 }
 
-template<>
+template <>
 inline std::uint64_t hash_fnv1a64<std::string_view>(const std::string_view& value) noexcept {
     return fnv1a_hash64(value.data(), value.size());
 }
 
-#endif // BLUESTL_USE_STD_STRING_HASH
+#endif  // BLUESTL_USE_STD_STRING_HASH
 
-} // namespace bluestl
+}  // namespace bluestl

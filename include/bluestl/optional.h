@@ -52,7 +52,7 @@ namespace bluestl {
  */
 template <typename T>
 class optional {
-public:
+   public:
     /**
      * @brief デフォルトコンストラクタ。値を保持しない状態で初期化。
      */
@@ -62,8 +62,7 @@ public:
      * @brief コピーコンストラクタ。値をコピーしてoptionalを構築。
      * @param value コピー元の値
      */
-    constexpr optional(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>)
-        : has_value_(true) {
+    constexpr optional(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>) : has_value_(true) {
         new (&storage_) T(value);
     }
 
@@ -71,8 +70,7 @@ public:
      * @brief ムーブコンストラクタ。値をムーブしてoptionalを構築。
      * @param value ムーブ元の値
      */
-    constexpr optional(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>)
-        : has_value_(true) {
+    constexpr optional(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>) : has_value_(true) {
         new (&storage_) T(std::move(value));
     }
 
@@ -101,14 +99,17 @@ public:
     /**
      * @brief デストラクタ。値があれば破棄。
      */
-    constexpr ~optional() { reset(); }
+    constexpr ~optional() {
+        reset();
+    }
 
     /**
      * @brief コピー代入演算子。他のoptionalの値をコピー。
      * @param other コピー元のoptional
      * @return *this
      */
-    constexpr optional& operator=(const optional& other) noexcept(std::is_nothrow_copy_assignable_v<T> && std::is_nothrow_copy_constructible_v<T>) {
+    constexpr optional& operator=(const optional& other) noexcept(std::is_nothrow_copy_assignable_v<T> &&
+                                                                  std::is_nothrow_copy_constructible_v<T>) {
         if (this != &other) {
             if (has_value_ && other.has_value_) {
                 *get() = *other;
@@ -126,7 +127,8 @@ public:
      * @param other ムーブ元のoptional
      * @return *this
      */
-    constexpr optional& operator=(optional&& other) noexcept(std::is_nothrow_move_assignable_v<T> && std::is_nothrow_move_constructible_v<T>) {
+    constexpr optional& operator=(optional&& other) noexcept(std::is_nothrow_move_assignable_v<T> &&
+                                                             std::is_nothrow_move_constructible_v<T>) {
         if (this != &other) {
             if (has_value_ && other.has_value_) {
                 *get() = std::move(*other);
@@ -167,22 +169,34 @@ public:
      * @brief operator->: 値へのポインタアクセス。
      * @return 値へのポインタ
      */
-    constexpr T* operator->() noexcept { return get(); }
-    constexpr const T* operator->() const noexcept { return get(); }
+    constexpr T* operator->() noexcept {
+        return get();
+    }
+    constexpr const T* operator->() const noexcept {
+        return get();
+    }
 
     /**
      * @brief operator*: 値への参照アクセス。
      * @return 値への参照
      */
-    constexpr T& operator*() noexcept { return *get(); }
-    constexpr const T& operator*() const noexcept { return *get(); }
+    constexpr T& operator*() noexcept {
+        return *get();
+    }
+    constexpr const T& operator*() const noexcept {
+        return *get();
+    }
 
     /**
      * @brief operator bool: 値が存在する場合true。
      * @return 値が存在すればtrue
      */
-    constexpr explicit operator bool() const noexcept { return has_value_; }
-    constexpr bool has_value() const noexcept { return has_value_; }
+    constexpr explicit operator bool() const noexcept {
+        return has_value_;
+    }
+    constexpr bool has_value() const noexcept {
+        return has_value_;
+    }
 
     /**
      * @brief value: 値を返す。値がなければアサート。
@@ -197,17 +211,21 @@ public:
         return *get();
     }
 
-private:
+   private:
     using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
-    storage_t storage_; ///< 値のストレージ
-    bool has_value_;    ///< 値の有無
+    storage_t storage_;  ///< 値のストレージ
+    bool has_value_;     ///< 値の有無
 
     /**
      * @brief get: 値へのポインタを返す（内部用）。
      * @return 値へのポインタ
      */
-    constexpr T* get() noexcept { return reinterpret_cast<T*>(&storage_); }
-    constexpr const T* get() const noexcept { return reinterpret_cast<const T*>(&storage_); }
+    constexpr T* get() noexcept {
+        return reinterpret_cast<T*>(&storage_);
+    }
+    constexpr const T* get() const noexcept {
+        return reinterpret_cast<const T*>(&storage_);
+    }
 };
 
 /**
@@ -217,7 +235,7 @@ private:
  */
 template <typename T>
 class optional<T&> {
-public:
+   public:
     /**
      * @brief デフォルトコンストラクタ。値なし状態で初期化。
      */
@@ -236,30 +254,45 @@ public:
      * @brief has_value: 値が存在するか判定。
      * @return 値があればtrue
      */
-    constexpr bool has_value() const noexcept { return ptr_ != nullptr; }
+    constexpr bool has_value() const noexcept {
+        return ptr_ != nullptr;
+    }
     /**
      * @brief operator bool: 値が存在すればtrue。
      */
-    constexpr explicit operator bool() const noexcept { return has_value(); }
+    constexpr explicit operator bool() const noexcept {
+        return has_value();
+    }
     /**
      * @brief value: 値への参照を返す。
      * @return 値への参照
      */
-    constexpr T& value() const noexcept { BLUESTL_ASSERT(ptr_); return *ptr_; }
+    constexpr T& value() const noexcept {
+        BLUESTL_ASSERT(ptr_);
+        return *ptr_;
+    }
     /**
      * @brief operator*: 値への参照。
      */
-    constexpr T& operator*() const noexcept { return value(); }
+    constexpr T& operator*() const noexcept {
+        return value();
+    }
     /**
      * @brief operator->: 値へのポインタ。
      */
-    constexpr T* operator->() const noexcept { BLUESTL_ASSERT(ptr_); return ptr_; }
+    constexpr T* operator->() const noexcept {
+        BLUESTL_ASSERT(ptr_);
+        return ptr_;
+    }
     /**
      * @brief reset: 値なし状態にする。
      */
-    void reset() noexcept { ptr_ = nullptr; }
-private:
+    void reset() noexcept {
+        ptr_ = nullptr;
+    }
+
+   private:
     T* ptr_;
 };
 
-} // namespace bluestl
+}  // namespace bluestl

@@ -19,11 +19,8 @@ constexpr std::uint32_t xxhash32(const void* data, std::size_t len, std::uint32_
     h32 += static_cast<std::uint32_t>(len);
 
     while (p + 4 <= bEnd) {
-        std::uint32_t k1 =
-            static_cast<std::uint32_t>(p[0]) |
-            (static_cast<std::uint32_t>(p[1]) << 8) |
-            (static_cast<std::uint32_t>(p[2]) << 16) |
-            (static_cast<std::uint32_t>(p[3]) << 24);
+        std::uint32_t k1 = static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
+                           (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
         k1 *= PRIME3;
         k1 = (k1 << 17) | (k1 >> (32 - 17));
         k1 *= PRIME4;
@@ -55,22 +52,17 @@ constexpr std::uint32_t hash_xx(const T& value, std::uint32_t seed = 0) noexcept
 constexpr std::uint64_t xxhash64(const void* data, std::size_t len, std::uint64_t seed = 0) noexcept {
     constexpr std::uint64_t PRIME1 = 11400714785074694791ULL;
     constexpr std::uint64_t PRIME2 = 14029467366897019727ULL;
-    constexpr std::uint64_t PRIME3 =  1609587929392839161ULL;
-    constexpr std::uint64_t PRIME4 =  9650029242287828579ULL;
-    constexpr std::uint64_t PRIME5 =  2870177450012600261ULL;
+    constexpr std::uint64_t PRIME3 = 1609587929392839161ULL;
+    constexpr std::uint64_t PRIME4 = 9650029242287828579ULL;
+    constexpr std::uint64_t PRIME5 = 2870177450012600261ULL;
     const unsigned char* p = static_cast<const unsigned char*>(data);
     const unsigned char* const bEnd = p + len;
     std::uint64_t h64 = seed + PRIME5 + len;
     while (p + 8 <= bEnd) {
-        std::uint64_t k1 =
-            static_cast<std::uint64_t>(p[0]) |
-            (static_cast<std::uint64_t>(p[1]) << 8) |
-            (static_cast<std::uint64_t>(p[2]) << 16) |
-            (static_cast<std::uint64_t>(p[3]) << 24) |
-            (static_cast<std::uint64_t>(p[4]) << 32) |
-            (static_cast<std::uint64_t>(p[5]) << 40) |
-            (static_cast<std::uint64_t>(p[6]) << 48) |
-            (static_cast<std::uint64_t>(p[7]) << 56);
+        std::uint64_t k1 = static_cast<std::uint64_t>(p[0]) | (static_cast<std::uint64_t>(p[1]) << 8) |
+                           (static_cast<std::uint64_t>(p[2]) << 16) | (static_cast<std::uint64_t>(p[3]) << 24) |
+                           (static_cast<std::uint64_t>(p[4]) << 32) | (static_cast<std::uint64_t>(p[5]) << 40) |
+                           (static_cast<std::uint64_t>(p[6]) << 48) | (static_cast<std::uint64_t>(p[7]) << 56);
         k1 *= PRIME2;
         k1 = (k1 << 31) | (k1 >> (64 - 31));
         k1 *= PRIME1;
@@ -118,28 +110,28 @@ inline std::uint64_t hash_xx64(const char* str, std::uint64_t seed = 0) noexcept
 
 // std::string向けの特殊化
 #include <string>
-template<>
+template <>
 inline std::uint32_t hash_xx<std::string>(const std::string& value, std::uint32_t seed) noexcept {
     return xxhash32(value.data(), value.size(), seed);
 }
 
 // std::string_view向けの特殊化
 #include <string_view>
-template<>
+template <>
 inline std::uint32_t hash_xx<std::string_view>(const std::string_view& value, std::uint32_t seed) noexcept {
     return xxhash32(value.data(), value.size(), seed);
 }
 
-template<>
+template <>
 inline std::uint64_t hash_xx64<std::string>(const std::string& value, std::uint64_t seed) noexcept {
     return xxhash64(value.data(), value.size(), seed);
 }
 
-template<>
+template <>
 inline std::uint64_t hash_xx64<std::string_view>(const std::string_view& value, std::uint64_t seed) noexcept {
     return xxhash64(value.data(), value.size(), seed);
 }
 
-#endif // BLUESTL_USE_STD_STRING_HASH
+#endif  // BLUESTL_USE_STD_STRING_HASH
 
-} // namespace bluestl
+}  // namespace bluestl

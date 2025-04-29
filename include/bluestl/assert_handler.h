@@ -9,7 +9,7 @@ namespace bluestl {
 using assert_handler_t = void (*)(const char* condition, const char* file, int line, const char* msg);
 
 // 互換性のために古いシグネチャも定義
-using AssertHandlerFn = void(*)(const char* expr, const char* file, int line);
+using AssertHandlerFn = void (*)(const char* expr, const char* file, int line);
 
 // デフォルトのアサートハンドラ
 inline void default_assert_handler(const char* condition, const char* file, int line, const char* msg) {
@@ -59,12 +59,12 @@ inline void set_assert_handler(AssertHandlerFn fn) {
 }
 
 // アサートマクロの実装
-#define BLUESTL_ASSERT_IMPL(cond, msg) \
-    do { \
-        if (!(cond)) { \
+#define BLUESTL_ASSERT_IMPL(cond, msg)                                       \
+    do {                                                                     \
+        if (!(cond)) {                                                       \
             bluestl::current_assert_handler(#cond, __FILE__, __LINE__, msg); \
-        } \
-    } while(0)
+        }                                                                    \
+    } while (0)
 
 // メッセージ付きアサート
 #define BLUESTL_ASSERT_MSG(cond, msg) BLUESTL_ASSERT_IMPL(cond, msg)
@@ -72,4 +72,4 @@ inline void set_assert_handler(AssertHandlerFn fn) {
 // シンプルなアサート
 #define BLUESTL_ASSERT(cond) BLUESTL_ASSERT_IMPL(cond, nullptr)
 
-} // namespace bluestl
+}  // namespace bluestl

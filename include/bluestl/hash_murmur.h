@@ -16,10 +16,8 @@ constexpr std::uint32_t murmur3_32(const void* key, std::size_t len, std::uint32
     // 本体
     for (std::size_t i = 0; i < nblocks; ++i) {
         std::uint32_t k =
-            static_cast<std::uint32_t>(data[i * 4 + 0]) |
-            (static_cast<std::uint32_t>(data[i * 4 + 1]) << 8) |
-            (static_cast<std::uint32_t>(data[i * 4 + 2]) << 16) |
-            (static_cast<std::uint32_t>(data[i * 4 + 3]) << 24);
+            static_cast<std::uint32_t>(data[i * 4 + 0]) | (static_cast<std::uint32_t>(data[i * 4 + 1]) << 8) |
+            (static_cast<std::uint32_t>(data[i * 4 + 2]) << 16) | (static_cast<std::uint32_t>(data[i * 4 + 3]) << 24);
         k *= c1;
         k = (k << 15) | (k >> (32 - 15));
         k *= c2;
@@ -30,10 +28,18 @@ constexpr std::uint32_t murmur3_32(const void* key, std::size_t len, std::uint32
     // 残り
     std::uint32_t k1 = 0;
     switch (len & 3) {
-    case 3: k1 ^= data[len - 3] << 16; [[fallthrough]];
-    case 2: k1 ^= data[len - 2] << 8; [[fallthrough]];
-    case 1: k1 ^= data[len - 1];
-        k1 *= c1; k1 = (k1 << 15) | (k1 >> (32 - 15)); k1 *= c2; h ^= k1;
+        case 3:
+            k1 ^= data[len - 3] << 16;
+            [[fallthrough]];
+        case 2:
+            k1 ^= data[len - 2] << 8;
+            [[fallthrough]];
+        case 1:
+            k1 ^= data[len - 1];
+            k1 *= c1;
+            k1 = (k1 << 15) | (k1 >> (32 - 15));
+            k1 *= c2;
+            h ^= k1;
     }
     // 終端処理
     h ^= static_cast<std::uint32_t>(len);
@@ -67,14 +73,10 @@ constexpr std::uint64_t murmur3_64(const void* key, std::size_t len, std::uint64
     std::size_t nblocks = len / 8;
     for (std::size_t i = 0; i < nblocks; ++i) {
         std::uint64_t k =
-            static_cast<std::uint64_t>(data[i * 8 + 0]) |
-            (static_cast<std::uint64_t>(data[i * 8 + 1]) << 8) |
-            (static_cast<std::uint64_t>(data[i * 8 + 2]) << 16) |
-            (static_cast<std::uint64_t>(data[i * 8 + 3]) << 24) |
-            (static_cast<std::uint64_t>(data[i * 8 + 4]) << 32) |
-            (static_cast<std::uint64_t>(data[i * 8 + 5]) << 40) |
-            (static_cast<std::uint64_t>(data[i * 8 + 6]) << 48) |
-            (static_cast<std::uint64_t>(data[i * 8 + 7]) << 56);
+            static_cast<std::uint64_t>(data[i * 8 + 0]) | (static_cast<std::uint64_t>(data[i * 8 + 1]) << 8) |
+            (static_cast<std::uint64_t>(data[i * 8 + 2]) << 16) | (static_cast<std::uint64_t>(data[i * 8 + 3]) << 24) |
+            (static_cast<std::uint64_t>(data[i * 8 + 4]) << 32) | (static_cast<std::uint64_t>(data[i * 8 + 5]) << 40) |
+            (static_cast<std::uint64_t>(data[i * 8 + 6]) << 48) | (static_cast<std::uint64_t>(data[i * 8 + 7]) << 56);
         k *= c1;
         k = (k << 31) | (k >> (64 - 31));
         k *= c2;
@@ -85,14 +87,30 @@ constexpr std::uint64_t murmur3_64(const void* key, std::size_t len, std::uint64
     // 残り
     std::uint64_t k1 = 0;
     switch (len & 7) {
-    case 7: k1 ^= static_cast<std::uint64_t>(data[len - 7]) << 48; [[fallthrough]];
-    case 6: k1 ^= static_cast<std::uint64_t>(data[len - 6]) << 40; [[fallthrough]];
-    case 5: k1 ^= static_cast<std::uint64_t>(data[len - 5]) << 32; [[fallthrough]];
-    case 4: k1 ^= static_cast<std::uint64_t>(data[len - 4]) << 24; [[fallthrough]];
-    case 3: k1 ^= static_cast<std::uint64_t>(data[len - 3]) << 16; [[fallthrough]];
-    case 2: k1 ^= static_cast<std::uint64_t>(data[len - 2]) << 8; [[fallthrough]];
-    case 1: k1 ^= static_cast<std::uint64_t>(data[len - 1]);
-        k1 *= c1; k1 = (k1 << 31) | (k1 >> (64 - 31)); k1 *= c2; h ^= k1;
+        case 7:
+            k1 ^= static_cast<std::uint64_t>(data[len - 7]) << 48;
+            [[fallthrough]];
+        case 6:
+            k1 ^= static_cast<std::uint64_t>(data[len - 6]) << 40;
+            [[fallthrough]];
+        case 5:
+            k1 ^= static_cast<std::uint64_t>(data[len - 5]) << 32;
+            [[fallthrough]];
+        case 4:
+            k1 ^= static_cast<std::uint64_t>(data[len - 4]) << 24;
+            [[fallthrough]];
+        case 3:
+            k1 ^= static_cast<std::uint64_t>(data[len - 3]) << 16;
+            [[fallthrough]];
+        case 2:
+            k1 ^= static_cast<std::uint64_t>(data[len - 2]) << 8;
+            [[fallthrough]];
+        case 1:
+            k1 ^= static_cast<std::uint64_t>(data[len - 1]);
+            k1 *= c1;
+            k1 = (k1 << 31) | (k1 >> (64 - 31));
+            k1 *= c2;
+            h ^= k1;
     }
     // 終端処理
     h ^= static_cast<std::uint64_t>(len);
@@ -121,28 +139,28 @@ inline std::uint64_t hash_murmur64(const char* str, std::uint64_t seed = 0) noex
 
 // std::string向けの特殊化
 #include <string>
-template<>
+template <>
 inline std::uint32_t hash_murmur<std::string>(const std::string& value, std::uint32_t seed) noexcept {
     return murmur3_32(value.data(), value.size(), seed);
 }
 
 // std::string_view向けの特殊化
 #include <string_view>
-template<>
+template <>
 inline std::uint32_t hash_murmur<std::string_view>(const std::string_view& value, std::uint32_t seed) noexcept {
     return murmur3_32(value.data(), value.size(), seed);
 }
 
-template<>
+template <>
 inline std::uint64_t hash_murmur64<std::string>(const std::string& value, std::uint64_t seed) noexcept {
     return murmur3_64(value.data(), value.size(), seed);
 }
 
-template<>
+template <>
 inline std::uint64_t hash_murmur64<std::string_view>(const std::string_view& value, std::uint64_t seed) noexcept {
     return murmur3_64(value.data(), value.size(), seed);
 }
 
-#endif // BLUESTL_USE_STD_STRING_HASH
+#endif  // BLUESTL_USE_STD_STRING_HASH
 
-} // namespace bluestl
+}  // namespace bluestl

@@ -41,7 +41,7 @@ namespace bluestl {
  */
 template <typename T, std::size_t SmallCapacity, typename Allocator = allocator>
 class small_buffer_vector {
-public:
+   public:
     using value_type = T;
     using allocator_type = Allocator;
     using size_type = std::size_t;
@@ -60,60 +60,111 @@ public:
      * @param alloc アロケータ
      */
     explicit small_buffer_vector(Allocator& alloc)
-        : m_allocator(alloc), m_data(reinterpret_cast<T*>(m_small_buffer)), m_size(0), m_capacity(SmallCapacity), m_data_address(reinterpret_cast<uintptr_t>(m_small_buffer)){}
+        : m_allocator(alloc),
+          m_data(reinterpret_cast<T*>(m_small_buffer)),
+          m_size(0),
+          m_capacity(SmallCapacity),
+          m_data_address(reinterpret_cast<uintptr_t>(m_small_buffer)) {}
 
     // コピー・ムーブコンストラクタ・代入演算子は省略（必要に応じて追加）
 
     /**
      * @brief デストラクタ
      */
-    ~small_buffer_vector() { clear(); deallocate(); }
+    ~small_buffer_vector() {
+        clear();
+        deallocate();
+    }
 
     /**
      * @brief 要素数を取得
      */
-    [[nodiscard]] size_type size() const noexcept { return m_size; }
+    [[nodiscard]] size_type size() const noexcept {
+        return m_size;
+    }
     /**
      * @brief 容量を取得
      */
-    [[nodiscard]] size_type capacity() const noexcept { return m_capacity; }
+    [[nodiscard]] size_type capacity() const noexcept {
+        return m_capacity;
+    }
     /**
      * @brief 空かどうか
      */
-    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
+    [[nodiscard]] bool empty() const noexcept {
+        return m_size == 0;
+    }
 
     /**
      * @brief データポインタ取得
      */
-    [[nodiscard]] T* data() noexcept { return m_data; }
-    [[nodiscard]] const T* data() const noexcept { return m_data; }
+    [[nodiscard]] T* data() noexcept {
+        return m_data;
+    }
+    [[nodiscard]] const T* data() const noexcept {
+        return m_data;
+    }
 
     /**
      * @brief 先頭イテレータ
      */
-    iterator begin() noexcept { return m_data; }
-    const_iterator begin() const noexcept { return m_data; }
-    iterator end() noexcept { return m_data + m_size; }
-    const_iterator end() const noexcept { return m_data + m_size; }
-    const_iterator cbegin() const noexcept { return begin(); }
-    const_iterator cend() const noexcept { return end(); }
-    reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
-    const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
-    reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
-    const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
-    const_reverse_iterator crbegin() const noexcept { return rbegin(); }
-    const_reverse_iterator crend() const noexcept { return rend(); }
+    iterator begin() noexcept {
+        return m_data;
+    }
+    const_iterator begin() const noexcept {
+        return m_data;
+    }
+    iterator end() noexcept {
+        return m_data + m_size;
+    }
+    const_iterator end() const noexcept {
+        return m_data + m_size;
+    }
+    const_iterator cbegin() const noexcept {
+        return begin();
+    }
+    const_iterator cend() const noexcept {
+        return end();
+    }
+    reverse_iterator rbegin() noexcept {
+        return reverse_iterator(end());
+    }
+    const_reverse_iterator rbegin() const noexcept {
+        return const_reverse_iterator(end());
+    }
+    reverse_iterator rend() noexcept {
+        return reverse_iterator(begin());
+    }
+    const_reverse_iterator rend() const noexcept {
+        return const_reverse_iterator(begin());
+    }
+    const_reverse_iterator crbegin() const noexcept {
+        return rbegin();
+    }
+    const_reverse_iterator crend() const noexcept {
+        return rend();
+    }
 
     /**
      * @brief 添字アクセス
      */
-    T& operator[](size_type i) noexcept { return m_data[i]; }
-    const T& operator[](size_type i) const noexcept { return m_data[i]; }
+    T& operator[](size_type i) noexcept {
+        return m_data[i];
+    }
+    const T& operator[](size_type i) const noexcept {
+        return m_data[i];
+    }
     /**
      * @brief 範囲チェック付きアクセス
      */
-    T& at(size_type i) { BLUESTL_ASSERT(i < m_size); return m_data[i]; }
-    const T& at(size_type i) const { BLUESTL_ASSERT(i < m_size); return m_data[i]; }
+    T& at(size_type i) {
+        BLUESTL_ASSERT(i < m_size);
+        return m_data[i];
+    }
+    const T& at(size_type i) const {
+        BLUESTL_ASSERT(i < m_size);
+        return m_data[i];
+    }
 
     /**
      * @brief 末尾に要素を追加
@@ -240,8 +291,7 @@ public:
         std::swap(m_size, other.m_size);
     }
 
-
-private:
+   private:
     Allocator& m_allocator;
     T* m_data;
     size_type m_size;
@@ -258,4 +308,4 @@ private:
     }
 };
 
-} // namespace bluestl
+}  // namespace bluestl

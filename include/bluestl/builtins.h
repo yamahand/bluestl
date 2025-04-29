@@ -17,17 +17,17 @@
 #define bluestl_has_unique_object_representations(T) __has_unique_object_representations(T)
 
 #if defined(_MSC_VER)
-	#define bluestl_is_convertible(From, To) __is_convertible_to(From, To)
+#define bluestl_is_convertible(From, To) __is_convertible_to(From, To)
 #else
-	#define bluestl_is_convertible(From, To) __is_convertible(From, To)
+#define bluestl_is_convertible(From, To) __is_convertible(From, To)
 #endif
 
 #if __has_builtin(__is_trivially_destructible) || defined(_MSC_VER)
-	#define bluestl_is_trivially_constructible(T) __is_trivially_constructible(T)
-	#define bluestl_is_trivially_destructible(T) __is_trivially_destructible(T)
+#define bluestl_is_trivially_constructible(T) __is_trivially_constructible(T)
+#define bluestl_is_trivially_destructible(T) __is_trivially_destructible(T)
 #else
-	#define bluestl_is_trivially_constructible(T) __has_trivial_constructor(T)
-	#define bluestl_is_trivially_destructible(T) __has_trivial_destructor(T)
+#define bluestl_is_trivially_constructible(T) __has_trivial_constructor(T)
+#define bluestl_is_trivially_destructible(T) __has_trivial_destructor(T)
 #endif
 
 #define bluestl_is_trivially_copyable(T) __is_trivially_copyable(T)

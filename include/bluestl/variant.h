@@ -43,7 +43,9 @@ namespace bluestl {
 
 // 型リストから最大値を計算するメタ関数
 template <size_t A>
-constexpr size_t static_max() { return A; }
+constexpr size_t static_max() {
+    return A;
+}
 template <size_t A, size_t B, size_t... Rest>
 constexpr size_t static_max() {
     if constexpr (sizeof...(Rest) == 0)
@@ -51,7 +53,6 @@ constexpr size_t static_max() {
     else
         return static_max<(A > B ? A : B), Rest...>();
 }
-
 
 /**
  * @class variant
@@ -70,7 +71,6 @@ template <typename... Types>
 class variant {
     static_assert(sizeof...(Types) > 0, "variant must have at least one alternative");
 
-    
     // 最大サイズと最大アラインメントを計算
     static constexpr size_t max_size = static_max<sizeof(Types)...>();
     static constexpr size_t max_align = static_max<alignof(Types)...>();
@@ -101,8 +101,7 @@ class variant {
         }
     }
 
-
-public:
+   public:
     /**
      * @brief デフォルトコンストラクタ。値を保持しない（valueless_by_exception()がtrue）。
      */
@@ -132,10 +131,9 @@ public:
      * @brief コピーコンストラクタ
      * @param other コピー元variant
      */
-    variant(const variant &other) {
+    variant(const variant& other) {
         // otherがvaluelessなら自分もvaluelessに
-        if (other.valueless_by_exception())
-        {
+        if (other.valueless_by_exception()) {
             reset();
             return;
         }
@@ -147,20 +145,21 @@ public:
      * @brief ムーブコンストラクタ
      * @param other ムーブ元variant
      */
-	variant(variant&& other) noexcept((std::is_nothrow_move_constructible_v<Types> && ...)) : index_(npos) {
-		if (!other.valueless_by_exception()) {
+    variant(variant&& other) noexcept((std::is_nothrow_move_constructible_v<Types> && ...)) : index_(npos) {
+        if (!other.valueless_by_exception()) {
             other.visit([this](auto&& v) { this->emplace<std::decay_t<decltype(v)>>(std::move(v)); });
-            other.reset(); // ムーブ後の状態をリセット
-        }
-        else {
+            other.reset();  // ムーブ後の状態をリセット
+        } else {
             index_ = npos;
         }
-	}
+    }
 
     /**
      * @brief デストラクタ
      */
-    ~variant() { destroy(); }
+    ~variant() {
+        destroy();
+    }
 
     /**
      * @brief コピー代入演算子
@@ -200,9 +199,10 @@ public:
      * @return *this
      */
     template <typename T>
-    variant& operator=(T&& value) noexcept(std::is_nothrow_assignable_v<T&, T&&>&& std::is_nothrow_constructible_v<T, T&&>) {
+    variant& operator=(T&& value) noexcept(std::is_nothrow_assignable_v<T&, T&&> &&
+                                           std::is_nothrow_constructible_v<T, T&&>) {
         static_assert((std::is_same_v<T, Types> || ...), "T must be one of the variant's types");
-        emplace<std::decay_t<T>>(std::forward<T>(value)); // 新しい値を構築
+        emplace<std::decay_t<T>>(std::forward<T>(value));  // 新しい値を構築
         return *this;
     }
 
@@ -234,12 +234,16 @@ public:
      * @brief 値を保持していない場合true。
      * @return 値がなければtrue
      */
-    bool valueless_by_exception() const noexcept { return index_ == npos; }
+    bool valueless_by_exception() const noexcept {
+        return index_ == npos;
+    }
     /**
      * @brief 現在保持している型のインデックス（0始まり）を返す。
      * @return 型インデックス
      */
-    size_t index() const noexcept { return index_; }
+    size_t index() const noexcept {
+        return index_;
+    }
 
     /**
      * @brief 現在の値が型Tであればtrue。
@@ -299,10 +303,10 @@ public:
         size_t index = 0;
         bool found = false;
         ((std::is_same_v<T, Types> ? (found = true, index = idx) : ++idx), ...);
-        return found ? index : static_cast<size_t>(-1); // 見つからない場合はエラー
+        return found ? index : static_cast<size_t>(-1);  // 見つからない場合はエラー
     }
 
-private:
+   private:
     static constexpr size_t npos = static_cast<size_t>(-1);
     alignas(max_align) std::byte storage_[max_size];
     size_t index_ = npos;
@@ -313,7 +317,7 @@ private:
     }
 
     void destroy_impl(size_t idx) noexcept {
-        using destroy_fn_t = void(*)(void*);
+        using destroy_fn_t = void (*)(void*);
         static constexpr destroy_fn_t destroyers[] = { &destroy_one<Types>... };
         destroyers[idx](&storage_);
     }
@@ -367,8 +371,8 @@ private:
                 emplace_by_index<I + 1>(idx, other);
             }
         } else {
-            BLUESTL_ASSERT(false); // 不正なインデックス
+            BLUESTL_ASSERT(false);  // 不正なインデックス
         }
     }
 };
-} // namespace bluestl
+}  // namespace bluestl

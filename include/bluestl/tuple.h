@@ -19,13 +19,14 @@ struct tuple_impl<Head, Tail...> {
     constexpr tuple_impl() = default;
     constexpr tuple_impl(const Head& h, const Tail&... t) : value(h), tail(t...) {}
 
-    //template <typename OtherTuple>
-    //requires std::is_same_v<std::remove_cvref_t<OtherTuple>, tuple<Types...>>
-    //constexpr tuple_impl(OtherTuple &&other) : value(std::forward<OtherTuple>(other).value) { }
+    // template <typename OtherTuple>
+    // requires std::is_same_v<std::remove_cvref_t<OtherTuple>, tuple<Types...>>
+    // constexpr tuple_impl(OtherTuple &&other) : value(std::forward<OtherTuple>(other).value) { }
 
     template <typename UHead, typename... UTail>
     constexpr tuple_impl(UHead&& h, UTail&&... t)
-    requires (std::is_constructible_v<Head, UHead&&>) : value(std::forward<UHead>(h)), tail(std::forward<UTail>(t)...) {}
+        requires(std::is_constructible_v<Head, UHead &&>)
+        : value(std::forward<UHead>(h)), tail(std::forward<UTail>(t)...) {}
 };
 
 template <>
@@ -37,23 +38,33 @@ struct tuple_impl<> : tuple_impl_base {
 template <typename... Types>
 class tuple : private tuple_impl<Types...> {
     using impl_type = tuple_impl<Types...>;
-public:
+
+   public:
     constexpr tuple() = default;
     template <typename = void>
-    constexpr tuple(const Types&... args) requires (sizeof...(Types) > 0) : impl_type(args...) {}
+    constexpr tuple(const Types&... args)
+        requires(sizeof...(Types) > 0)
+        : impl_type(args...) {}
     template <typename... UTypes>
     constexpr tuple(UTypes&&... args) : impl_type(std::forward<UTypes>(args)...) {}
 
-
     // get<I>
     template <std::size_t I>
-    constexpr auto& get() & { return get_impl<I>(*this); }
+    constexpr auto& get() & {
+        return get_impl<I>(*this);
+    }
     template <std::size_t I>
-    constexpr const auto& get() const & { return get_impl<I>(*this); }
+    constexpr const auto& get() const& {
+        return get_impl<I>(*this);
+    }
     template <std::size_t I>
-    constexpr auto&& get() && { return std::move(get_impl<I>(*this)); }
+    constexpr auto&& get() && {
+        return std::move(get_impl<I>(*this));
+    }
     template <std::size_t I>
-    constexpr const auto&& get() const && { return std::move(get_impl<I>(*this)); }
+    constexpr const auto&& get() const&& {
+        return std::move(get_impl<I>(*this));
+    }
 
     // 比較演算子
     friend constexpr bool operator==(const tuple& lhs, const tuple& rhs) noexcept {
@@ -74,7 +85,8 @@ public:
     friend constexpr bool operator>=(const tuple& lhs, const tuple& rhs) noexcept {
         return !(lhs < rhs);
     }
-private:
+
+   private:
     // get_impl: I番目の値を取得
     template <std::size_t I, typename TupleT>
     static constexpr auto& get_impl(TupleT& t) {
@@ -97,8 +109,10 @@ private:
     static constexpr bool tuple_less_impl(const TupleT& lhs, const TupleT& rhs, std::index_sequence<I0, Is...>) {
         if (lhs.template get<I0>() < rhs.template get<I0>()) return true;
         if (rhs.template get<I0>() < lhs.template get<I0>()) return false;
-        if constexpr (sizeof...(Is) == 0) return false;
-        else return tuple_less_impl(lhs, rhs, std::index_sequence<Is...>{});
+        if constexpr (sizeof...(Is) == 0)
+            return false;
+        else
+            return tuple_less_impl(lhs, rhs, std::index_sequence<Is...>{});
     }
     template <typename TupleT>
     static constexpr bool tuple_less_impl(const TupleT&, const TupleT&, std::index_sequence<>) {
@@ -126,7 +140,9 @@ struct tuple_element<0, tuple<Head, Tail...>> {
 };
 
 template <std::size_t I>
-struct tuple_element<I, tuple<>> { static_assert(I < 0, "tuple_element index out of range"); };
+struct tuple_element<I, tuple<>> {
+    static_assert(I < 0, "tuple_element index out of range");
+};
 
 // get関数
 template <std::size_t I, typename... Types>
@@ -148,35 +164,29 @@ constexpr const auto&& get(const tuple<Types...>&& t) noexcept {
 
 // tuple_cat用ヘルパー
 namespace detail {
-    template <typename Tuple1, typename Tuple2, std::size_t... I1, std::size_t... I2>
-    constexpr auto tuple_cat_two_impl(Tuple1&& t1, Tuple2&& t2,
-        std::index_sequence<I1...>, std::index_sequence<I2...>) {
-        return bluestl::tuple<
-            std::remove_reference_t<decltype(bluestl::get<I1>(std::forward<Tuple1>(t1)))>...,
-            std::remove_reference_t<decltype(bluestl::get<I2>(std::forward<Tuple2>(t2)))>...
-        >(
-            bluestl::get<I1>(std::forward<Tuple1>(t1))...,
-            bluestl::get<I2>(std::forward<Tuple2>(t2))...
-        );
-    }
-    template <typename Tuple1, typename Tuple2, typename... Tuples>
-    constexpr auto tuple_cat_variadic(Tuple1&& t1, Tuple2&& t2, Tuples&&... ts) {
-        auto merged = tuple_cat_two_impl(
-            std::forward<Tuple1>(t1), std::forward<Tuple2>(t2),
-            std::make_index_sequence<bluestl::tuple_size<std::remove_reference_t<Tuple1>>::value>{},
-            std::make_index_sequence<bluestl::tuple_size<std::remove_reference_t<Tuple2>>::value>{}
-        );
-        if constexpr (sizeof...(ts) == 0) {
-            return merged;
-        } else {
-            return tuple_cat_variadic(std::move(merged), std::forward<Tuples>(ts)...);
-        }
-    }
-    template <typename Tuple1>
-    constexpr auto tuple_cat_variadic(Tuple1&& t1) {
-        return std::forward<Tuple1>(t1);
+template <typename Tuple1, typename Tuple2, std::size_t... I1, std::size_t... I2>
+constexpr auto tuple_cat_two_impl(Tuple1&& t1, Tuple2&& t2, std::index_sequence<I1...>, std::index_sequence<I2...>) {
+    return bluestl::tuple<std::remove_reference_t<decltype(bluestl::get<I1>(std::forward<Tuple1>(t1)))>...,
+                          std::remove_reference_t<decltype(bluestl::get<I2>(std::forward<Tuple2>(t2)))>...>(
+        bluestl::get<I1>(std::forward<Tuple1>(t1))..., bluestl::get<I2>(std::forward<Tuple2>(t2))...);
+}
+template <typename Tuple1, typename Tuple2, typename... Tuples>
+constexpr auto tuple_cat_variadic(Tuple1&& t1, Tuple2&& t2, Tuples&&... ts) {
+    auto merged =
+        tuple_cat_two_impl(std::forward<Tuple1>(t1), std::forward<Tuple2>(t2),
+                           std::make_index_sequence<bluestl::tuple_size<std::remove_reference_t<Tuple1>>::value>{},
+                           std::make_index_sequence<bluestl::tuple_size<std::remove_reference_t<Tuple2>>::value>{});
+    if constexpr (sizeof...(ts) == 0) {
+        return merged;
+    } else {
+        return tuple_cat_variadic(std::move(merged), std::forward<Tuples>(ts)...);
     }
 }
+template <typename Tuple1>
+constexpr auto tuple_cat_variadic(Tuple1&& t1) {
+    return std::forward<Tuple1>(t1);
+}
+}  // namespace detail
 
 template <typename... Tuples>
 constexpr auto tuple_cat(Tuples&&... tuples) {
@@ -187,4 +197,4 @@ constexpr auto tuple_cat(Tuples&&... tuples) {
     }
 }
 
-} // namespace bluestl
+}  // namespace bluestl

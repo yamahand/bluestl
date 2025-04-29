@@ -11,7 +11,7 @@ namespace bluestl {
 
 template <typename T, std::size_t Capacity>
 class fixed_vector {
-public:
+   public:
     using value_type = T;
     using reference = T&;
     using const_reference = const T&;
@@ -21,7 +21,9 @@ public:
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    constexpr fixed_vector() noexcept : size_(0) {}
+    constexpr fixed_vector() noexcept : size_(0) {
+        m_data = data();
+    }
 
     // デストラクタ
     ~fixed_vector() noexcept {
@@ -49,27 +51,59 @@ public:
         size_ = 0;
     }
 
-    [[nodiscard]] constexpr size_type size() const noexcept { return size_; }
-    [[nodiscard]] constexpr size_type capacity() const noexcept { return Capacity; }
+    [[nodiscard]] constexpr size_type size() const noexcept {
+        return size_;
+    }
+    [[nodiscard]] constexpr size_type capacity() const noexcept {
+        return Capacity;
+    }
 
-    [[nodiscard]] constexpr T* data() noexcept { return reinterpret_cast<T*>(storage_); }
-    [[nodiscard]] constexpr const T* data() const noexcept { return reinterpret_cast<const T*>(storage_); }
+    [[nodiscard]] constexpr T* data() noexcept {
+        return reinterpret_cast<T*>(storage_);
+    }
+    [[nodiscard]] constexpr const T* data() const noexcept {
+        return reinterpret_cast<const T*>(storage_);
+    }
 
-    [[nodiscard]] constexpr iterator begin() noexcept { return data(); }
-    [[nodiscard]] constexpr const_iterator begin() const noexcept { return data(); }
-    [[nodiscard]] constexpr iterator end() noexcept { return data() + size_; }
-    [[nodiscard]] constexpr const_iterator end() const noexcept { return data() + size_; }
+    [[nodiscard]] constexpr iterator begin() noexcept {
+        return data();
+    }
+    [[nodiscard]] constexpr const_iterator begin() const noexcept {
+        return data();
+    }
+    [[nodiscard]] constexpr iterator end() noexcept {
+        return data() + size_;
+    }
+    [[nodiscard]] constexpr const_iterator end() const noexcept {
+        return data() + size_;
+    }
 
-    [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return begin(); }
-    [[nodiscard]] constexpr const_iterator cend() const noexcept { return end(); }
+    [[nodiscard]] constexpr const_iterator cbegin() const noexcept {
+        return begin();
+    }
+    [[nodiscard]] constexpr const_iterator cend() const noexcept {
+        return end();
+    }
 
-    [[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
-    [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
-    [[nodiscard]] constexpr reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
-    [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
+    [[nodiscard]] constexpr reverse_iterator rbegin() noexcept {
+        return reverse_iterator(end());
+    }
+    [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept {
+        return const_reverse_iterator(end());
+    }
+    [[nodiscard]] constexpr reverse_iterator rend() noexcept {
+        return reverse_iterator(begin());
+    }
+    [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept {
+        return const_reverse_iterator(begin());
+    }
 
-    [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
-    [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
+    [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept {
+        return rbegin();
+    }
+    [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept {
+        return rend();
+    }
 
     [[nodiscard]] constexpr reference at(size_type pos) noexcept {
         BLUESTL_ASSERT(pos < size_);
@@ -103,7 +137,9 @@ public:
         BLUESTL_ASSERT(size_ > 0);
         return data()[size_ - 1];
     }
-    [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; }
+    [[nodiscard]] constexpr bool empty() const noexcept {
+        return size_ == 0;
+    }
 
     // ムーブ対応 push_back
     constexpr bool push_back(T&& value) noexcept {
@@ -236,9 +272,10 @@ public:
         }
     }
 
-private:
+   private:
     alignas(T) unsigned char storage_[sizeof(T) * Capacity];
     size_type size_;
+    T* m_data;
 };
 
-} // namespace bluestl
+}  // namespace bluestl
