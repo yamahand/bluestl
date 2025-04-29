@@ -1,11 +1,29 @@
 ﻿# .clang-format for BlueStl
-BasedOnStyle: Google
-IndentWidth: 4
-TabWidth: 4
-UseTab: Never
-ColumnLimit: 120
-AllowShortFunctionsOnASingleLine: Empty
-DerivePointerAlignment: false
-PointerAlignment: Left
-Standard: c++20
-SortIncludes: false
+#
+# このファイルはBlueStlプロジェクト用のC++コード自動整形設定です。
+# Googleスタイルをベースに、インデント幅や波括弧、初期化リストのスペースなどを調整しています。
+# return { iterator(this, idx), false }; のように、初期化リストの波括弧内にスペースが入るように設定しています。
+# C++20対応、UTF-8 with BOM、STL風インターフェース、シンプルな記述を重視しています。
+# 詳細は各項目の公式ドキュメントを参照してください。
+BasedOnStyle: Google           # Googleスタイルをベースにする
+IndentWidth: 4                # インデント幅を4に設定
+TabWidth: 4                   # タブ幅を4に設定
+UseTab: Never                 # タブ文字は使用せずスペースに統一
+ColumnLimit: 120              # 1行の最大文字数を120に設定
+AllowShortFunctionsOnASingleLine: Empty  # 空の短い関数のみ1行にまとめる
+DerivePointerAlignment: false # ポインタのアラインメントを自動判定しない
+PointerAlignment: Left        # ポインタ記号*は型名の左側に配置
+Standard: c++20               # C++20標準に準拠
+SortIncludes: false           # include順序の自動ソートを無効化
+BraceWrapping:                # 波括弧の配置に関する設定
+  AfterFunction: true         # 関数定義の後に改行して波括弧を配置
+  AfterControlStatement: true # if/for/while等の後に改行して波括弧を配置
+  AfterEnum: true             # enum定義の後に改行して波括弧を配置
+  AfterStruct: true           # struct定義の後に改行して波括弧を配置
+  AfterClass: true            # class定義の後に改行して波括弧を配置
+  BeforeElse: true            # elseの前に改行を入れる
+  SplitEmptyFunction: false   # 空の関数定義は1行にまとめない
+  SplitEmptyRecord: false     # 空のstruct/classは1行にまとめない
+  SplitEmptyNamespace: false  # 空のnamespaceは1行にまとめない
+Cpp11BracedListStyle: false   # C++11の初期化リストスタイルを無効化
+SpacesInBracedInitList: true  # 初期化リストの波括弧内にスペースを入れる
