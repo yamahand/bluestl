@@ -55,9 +55,9 @@ namespace bluestl
 		/** @brief サイズ型 */
 		using size_type = std::size_t;
 		/** @brief 参照型 */
-		using reference = value_type&;
+		using reference = value_type &;
 		/** @brief const参照型 */
-		using const_reference = const value_type&;
+		using const_reference = const value_type &;
 
 		// Constants
 		static constexpr size_type npos = static_cast<size_type>(-1);
@@ -69,11 +69,12 @@ namespace bluestl
 		struct bucket
 		{
 			pair<Key, T> kv; ///< キーと値のペア
-			bool used;       ///< 使用中フラグ
+			bool used;		 ///< 使用フラグ
+			bool deleted;	 ///< 削除フラグ
 			/**
 			 * @brief デフォルトコンストラクタ
 			 */
-			constexpr bucket() noexcept : kv(), used(false) {}
+			constexpr bucket() noexcept : kv(), used(false), deleted(false) {}
 		};
 
 		class iterator;
@@ -114,7 +115,10 @@ namespace bluestl
 		constexpr void clear() noexcept
 		{
 			for (size_type i = 0; i < Capacity; ++i)
+			{
 				buckets_[i].used = false;
+				buckets_[i].deleted = false;
+			}
 			size_ = 0;
 		}
 
@@ -124,7 +128,7 @@ namespace bluestl
 		 * @return 対応する値への参照。存在しない場合はデフォルト値を挿入し、その参照を返します。
 		 * @details 例外は発生しません。要素が存在しない場合は新たに挿入されます。
 		 */
-		constexpr T& operator[](const Key& key) noexcept
+		constexpr T &operator[](const Key &key) noexcept
 		{
 			size_type idx = find_index(key);
 			if (idx != npos)
@@ -138,7 +142,7 @@ namespace bluestl
 		 * @return 対応する値への参照。存在しない場合はダミー値への参照を返します。
 		 * @details 例外は発生しません。要素が存在しない場合はダミー値（staticなT）を返します。
 		 */
-		constexpr T& at(const Key& key) noexcept
+		constexpr T &at(const Key &key) noexcept
 		{
 			size_type idx = find_index(key);
 			if (idx == npos)
@@ -151,12 +155,14 @@ namespace bluestl
 		 * @return optional<mapped_type&> 値が存在すれば参照、なければ値なし
 		 * @details 例外は発生しません。
 		 */
-		constexpr bluestl::optional<T&> try_get(const Key& key) noexcept {
+		constexpr bluestl::optional<T &> try_get(const Key &key) noexcept
+		{
 			size_type idx = find_index(key);
-			if (idx != npos) {
-				return bluestl::optional<T&>(buckets_[idx].kv.second);
+			if (idx != npos)
+			{
+				return bluestl::optional<T &>(buckets_[idx].kv.second);
 			}
-			return bluestl::optional<T&>();
+			return bluestl::optional<T &>();
 		}
 		/**
 		 * @brief キーに対応する値へのconst参照をoptionalで返します。
@@ -164,12 +170,14 @@ namespace bluestl
 		 * @return optional<const mapped_type&> 値が存在すればconst参照、なければ値なし
 		 * @details 例外は発生しません。
 		 */
-		constexpr bluestl::optional<const T&> try_get(const Key& key) const noexcept {
+		constexpr bluestl::optional<const T &> try_get(const Key &key) const noexcept
+		{
 			size_type idx = find_index(key);
-			if (idx != npos) {
-				return bluestl::optional<const T&>(buckets_[idx].kv.second);
+			if (idx != npos)
+			{
+				return bluestl::optional<const T &>(buckets_[idx].kv.second);
 			}
-			return bluestl::optional<const T&>();
+			return bluestl::optional<const T &>();
 		}
 		/**
 		 * @brief キーが存在するか判定します。
@@ -178,7 +186,8 @@ namespace bluestl
 		 * @retval false 存在しない
 		 * @details 例外は発生しません。
 		 */
-		constexpr bool contains(const Key& key) const noexcept {
+		constexpr bool contains(const Key &key) const noexcept
+		{
 			return find_index(key) != npos;
 		}
 		/**
@@ -187,7 +196,8 @@ namespace bluestl
 		 * @return 対応する値へのconst参照。存在しない場合はダミー値へのconst参照を返します。
 		 * @details 例外は発生しません。
 		 */
-		constexpr const T& at(const Key& key) const noexcept {
+		constexpr const T &at(const Key &key) const noexcept
+		{
 			size_type idx = find_index(key);
 			if (idx == npos)
 				return dummy();
@@ -200,9 +210,11 @@ namespace bluestl
 		 * @return 見つかった場合は該当要素を指すイテレータ、見つからなければend()を返します。
 		 * @details 例外は発生しません。
 		 */
-		constexpr iterator find(const Key& key) noexcept {
+		constexpr iterator find(const Key &key) noexcept
+		{
 			size_type idx = find_index(key);
-			if (idx == npos) return end();
+			if (idx == npos)
+				return end();
 			return iterator(this, idx);
 		}
 		/**
@@ -211,15 +223,18 @@ namespace bluestl
 		 * @return 見つかった場合は該当要素を指すconstイテレータ、見つからなければend()を返します。
 		 * @details 例外は発生しません。
 		 */
-		constexpr const_iterator find(const Key& key) const noexcept {
+		constexpr const_iterator find(const Key &key) const noexcept
+		{
 			size_type idx = find_index(key);
-			if (idx == npos) return end();
+			if (idx == npos)
+				return end();
 			return const_iterator(this, idx);
 		}
 
 		///
 		template <class... Args>
-		pair<iterator, bool> emplace(Args&&... args) {
+		pair<iterator, bool> emplace(Args &&...args)
+		{
 			// value_type (pair<const Key, T>) を直接構築
 			value_type new_value(std::forward<Args>(args)...);
 
@@ -227,27 +242,31 @@ namespace bluestl
 			size_type hash = bluestl::hash(new_value.first) % Capacity;
 
 			// バケットを線形探索
-			for (size_type i = 0; i < Capacity; ++i) {
+			for (size_type i = 0; i < Capacity; ++i)
+			{
 				size_type idx = (hash + i) % Capacity;
 
-				// 未使用バケットが見つかった場合
-				if (!buckets_[idx].used) {
+				// 未使用or削除済みバケットが見つかった場合
+				if (!buckets_[idx].used || buckets_[idx].deleted)
+				{
 					// 新しい要素を挿入
 					buckets_[idx].kv.first = new_value.first;
 					buckets_[idx].kv.second = std::move(new_value.second);
 					buckets_[idx].used = true;
+					buckets_[idx].deleted = false;
 					++size_;
-					return { iterator(this, idx), true };
+					return {iterator(this, idx), true};
 				}
 
 				// 同じキーが既に存在する場合
-				if (buckets_[idx].used && buckets_[idx].kv.first == new_value.first) {
-					return { iterator(this, idx), false };
+				if (buckets_[idx].used && buckets_[idx].kv.first == new_value.first)
+				{
+					return {iterator(this, idx), false};
 				}
 			}
 
 			// 容量が不足している場合
-			return { end(), false };
+			return {end(), false};
 		}
 
 		/**
@@ -259,22 +278,27 @@ namespace bluestl
 		 * @details 既に同じキーが存在する場合は挿入せず、その位置のイテレータとfalseを返します。
 		 */
 		template <typename... Args>
-		constexpr pair<iterator, bool> try_emplace(const Key& key, Args&&... args) noexcept {
+		constexpr pair<iterator, bool> try_emplace(const Key &key, Args &&...args) noexcept
+		{
 			size_type hash = bluestl::hash(key) % Capacity;
-			for (size_type i = 0; i < Capacity; ++i) {
+			for (size_type i = 0; i < Capacity; ++i)
+			{
 				size_type idx = (hash + i) % Capacity;
-				if (!buckets_[idx].used) {
+				if (!buckets_[idx].used || buckets_[idx].deleted)
+				{
 					buckets_[idx].kv.first = key;
 					buckets_[idx].kv.second = T(std::forward<Args>(args)...);
 					buckets_[idx].used = true;
+					buckets_[idx].deleted = false;
 					++size_;
-					return { iterator(this, idx), true };
+					return {iterator(this, idx), true};
 				}
-				if (buckets_[idx].used && buckets_[idx].kv.first == key) {
-					return { iterator(this, idx), false };
+				if (buckets_[idx].used && buckets_[idx].kv.first == key)
+				{
+					return {iterator(this, idx), false};
 				}
 			}
-			return { end(), false };
+			return {end(), false};
 		}
 
 		/**
@@ -283,23 +307,28 @@ namespace bluestl
 		 * @param value 挿入または上書きする値
 		 * @return 挿入位置のイテレータと、挿入（新規true/上書きfalse）
 		 */
-		constexpr pair<iterator, bool> insert_or_assign(const Key& key, const T& value) noexcept {
+		constexpr pair<iterator, bool> insert_or_assign(const Key &key, const T &value) noexcept
+		{
 			size_type hash = bluestl::hash(key) % Capacity;
-			for (size_type i = 0; i < Capacity; ++i) {
+			for (size_type i = 0; i < Capacity; ++i)
+			{
 				size_type idx = (hash + i) % Capacity;
-				if (!buckets_[idx].used) {
+				if (!buckets_[idx].used || buckets_[idx].deleted)
+				{
 					buckets_[idx].kv.first = key;
 					buckets_[idx].kv.second = value;
 					buckets_[idx].used = true;
+					buckets_[idx].deleted = false;
 					++size_;
-					return { iterator(this, idx), true };
+					return {iterator(this, idx), true};
 				}
-				if (buckets_[idx].used && buckets_[idx].kv.first == key) {
+				if (buckets_[idx].used && buckets_[idx].kv.first == key)
+				{
 					buckets_[idx].kv.second = value;
-					return { iterator(this, idx), false };
+					return {iterator(this, idx), false};
 				}
 			}
-			return { end(), false };
+			return {end(), false};
 		}
 
 		/**
@@ -307,16 +336,18 @@ namespace bluestl
 		 * @param key 検索するキー
 		 * @return キーが存在すれば1、なければ0
 		 */
-		constexpr size_type count(const Key& key) const noexcept {
+		constexpr size_type count(const Key &key) const noexcept
+		{
 			return contains(key) ? 1 : 0;
 		}
 
 		// --- iterator, const_iterator の定義ここから ---
-		class iterator {
+		class iterator
+		{
 		public:
 			using value_type = typename fixed_hash_map::value_type;
-			using reference = value_type&;
-			using pointer = value_type*;
+			using reference = value_type &;
+			using pointer = value_type *;
 			using difference_type = std::ptrdiff_t;
 			using iterator_category = std::forward_iterator_tag;
 
@@ -327,21 +358,23 @@ namespace bluestl
 			/**
 			 * @brief 内部用コンストラクタ
 			 */
-			constexpr iterator(fixed_hash_map* map, size_type idx) noexcept : map_(map), idx_(idx) {
+			constexpr iterator(fixed_hash_map *map, size_type idx) noexcept : map_(map), idx_(idx)
+			{
 				skip_to_valid();
 			}
 			/**
 			 * @brief デリファレンス
 			 */
-			constexpr reference operator*() const noexcept { return *reinterpret_cast<value_type*>(&map_->buckets_[idx_].kv); }
+			constexpr reference operator*() const noexcept { return *reinterpret_cast<value_type *>(&map_->buckets_[idx_].kv); }
 			/**
 			 * @brief ポインタアクセス
 			 */
-			constexpr pointer operator->() const noexcept { return reinterpret_cast<value_type*>(&map_->buckets_[idx_].kv); }
+			constexpr pointer operator->() const noexcept { return reinterpret_cast<value_type *>(&map_->buckets_[idx_].kv); }
 			/**
 			 * @brief 前置インクリメント
 			 */
-			constexpr iterator& operator++() noexcept {
+			constexpr iterator &operator++() noexcept
+			{
 				++idx_;
 				skip_to_valid();
 				return *this;
@@ -349,7 +382,8 @@ namespace bluestl
 			/**
 			 * @brief 後置インクリメント
 			 */
-			constexpr iterator operator++(int) noexcept {
+			constexpr iterator operator++(int) noexcept
+			{
 				iterator tmp = *this;
 				++(*this);
 				return tmp;
@@ -357,17 +391,20 @@ namespace bluestl
 			/**
 			 * @brief 等価比較
 			 */
-			constexpr bool operator==(const iterator& rhs) const noexcept { return map_ == rhs.map_ && idx_ == rhs.idx_; }
+			constexpr bool operator==(const iterator &rhs) const noexcept { return map_ == rhs.map_ && idx_ == rhs.idx_; }
 			/**
 			 * @brief 非等価比較
 			 */
-			constexpr bool operator!=(const iterator& rhs) const noexcept { return !(*this == rhs); }
+			constexpr bool operator!=(const iterator &rhs) const noexcept { return !(*this == rhs); }
 			// --- 内部用 ---
-			fixed_hash_map* map_;
+			fixed_hash_map *map_;
 			size_type idx_;
+
 		private:
-			constexpr void skip_to_valid() noexcept {
-				while (map_ && idx_ < Capacity && !map_->buckets_[idx_].used) ++idx_;
+			constexpr void skip_to_valid() noexcept
+			{
+				while (map_ && idx_ < Capacity && (!map_->buckets_[idx_].used || map_->buckets_[idx_].deleted))
+					++idx_;
 			}
 		};
 
@@ -375,11 +412,12 @@ namespace bluestl
 		 * @brief constイテレータ型（前方イテレータ）
 		 * @details 有効な要素のみを巡回します。
 		 */
-		class const_iterator {
+		class const_iterator
+		{
 		public:
 			using value_type = typename fixed_hash_map::value_type;
-			using reference = const value_type&;
-			using pointer = const value_type*;
+			using reference = const value_type &;
+			using pointer = const value_type *;
 			using difference_type = std::ptrdiff_t;
 			using iterator_category = std::forward_iterator_tag;
 
@@ -390,21 +428,23 @@ namespace bluestl
 			/**
 			 * @brief 内部用コンストラクタ
 			 */
-			constexpr const_iterator(const fixed_hash_map* map, size_type idx) noexcept : map_(map), idx_(idx) {
+			constexpr const_iterator(const fixed_hash_map *map, size_type idx) noexcept : map_(map), idx_(idx)
+			{
 				skip_to_valid();
 			}
 			/**
 			 * @brief デリファレンス
 			 */
-			constexpr reference operator*() const noexcept { return *reinterpret_cast<const value_type*>(&map_->buckets_[idx_].kv); }
+			constexpr reference operator*() const noexcept { return *reinterpret_cast<const value_type *>(&map_->buckets_[idx_].kv); }
 			/**
 			 * @brief ポインタアクセス
 			 */
-			constexpr pointer operator->() const noexcept { return reinterpret_cast<const value_type*>(&map_->buckets_[idx_].kv); }
+			constexpr pointer operator->() const noexcept { return reinterpret_cast<const value_type *>(&map_->buckets_[idx_].kv); }
 			/**
 			 * @brief 前置インクリメント
 			 */
-			constexpr const_iterator& operator++() noexcept {
+			constexpr const_iterator &operator++() noexcept
+			{
 				++idx_;
 				skip_to_valid();
 				return *this;
@@ -412,7 +452,8 @@ namespace bluestl
 			/**
 			 * @brief 後置インクリメント
 			 */
-			constexpr const_iterator operator++(int) noexcept {
+			constexpr const_iterator operator++(int) noexcept
+			{
 				const_iterator tmp = *this;
 				++(*this);
 				return tmp;
@@ -420,17 +461,20 @@ namespace bluestl
 			/**
 			 * @brief 等価比較
 			 */
-			constexpr bool operator==(const const_iterator& rhs) const noexcept { return map_ == rhs.map_ && idx_ == rhs.idx_; }
+			constexpr bool operator==(const const_iterator &rhs) const noexcept { return map_ == rhs.map_ && idx_ == rhs.idx_; }
 			/**
 			 * @brief 非等価比較
 			 */
-			constexpr bool operator!=(const const_iterator& rhs) const noexcept { return !(*this == rhs); }
+			constexpr bool operator!=(const const_iterator &rhs) const noexcept { return !(*this == rhs); }
 			// --- 内部用 ---
-			const fixed_hash_map* map_;
+			const fixed_hash_map *map_;
 			size_type idx_;
+
 		private:
-			constexpr void skip_to_valid() noexcept {
-				while (map_ && idx_ < Capacity && !map_->buckets_[idx_].used) ++idx_;
+			constexpr void skip_to_valid() noexcept
+			{
+				while (map_ && idx_ < Capacity && (!map_->buckets_[idx_].used || map_->buckets_[idx_].deleted))
+					++idx_;
 			}
 		};
 		// --- iterator, const_iterator の定義ここまで ---
@@ -443,22 +487,26 @@ namespace bluestl
 		 * @details 既に同じキーが存在する場合は挿入せず、その位置のイテレータとfalseを返します。
 		 *          容量超過時はend()とfalseを返します。
 		 */
-		constexpr pair<iterator, bool> insert(const Key& key, const T& value) noexcept {
+		constexpr pair<iterator, bool> insert(const Key &key, const T &value) noexcept
+		{
 			size_type hash = bluestl::hash(key) % Capacity;
-			for (size_type i = 0; i < Capacity; ++i) {
+			for (size_type i = 0; i < Capacity; ++i)
+			{
 				size_type idx = (hash + i) % Capacity;
-				if (!buckets_[idx].used) {
+				if (!buckets_[idx].used)
+				{
 					buckets_[idx].kv.first = key;
 					buckets_[idx].kv.second = value;
 					buckets_[idx].used = true;
 					++size_;
-					return { iterator(this, idx), true };
+					return {iterator(this, idx), true};
 				}
-				if (buckets_[idx].used && buckets_[idx].kv.first == key) {
-					return { iterator(this, idx), false };
+				if (buckets_[idx].used && buckets_[idx].kv.first == key)
+				{
+					return {iterator(this, idx), false};
 				}
 			}
-			return { end(), false };
+			return {end(), false};
 		}
 
 		/**
@@ -467,27 +515,32 @@ namespace bluestl
 		 * @return 削除した次の要素を指すイテレータ
 		 * @details posがend()の場合はend()を返します。
 		 */
-		constexpr iterator erase(iterator pos) noexcept {
-			if (pos == end()) return end();
+		constexpr iterator erase(iterator pos) noexcept
+		{
+			if (pos == end())
+				return end();
 			size_type idx = pos.idx_;
-			buckets_[idx].used = false;
+			buckets_[idx].deleted = true;
 			--size_;
 			++pos;
 			return pos;
 		}
 
 		/**
-	 * @brief 他の fixed_hash_map と内容を入れ替えます。
-	 * @param other 入れ替え対象の fixed_hash_map
-	 * @details 例外は発生しません。
-	 */
-		void swap(fixed_hash_map& other) noexcept {
-			if (this == &other) {
+		 * @brief 他の fixed_hash_map と内容を入れ替えます。
+		 * @param other 入れ替え対象の fixed_hash_map
+		 * @details 例外は発生しません。
+		 */
+		void swap(fixed_hash_map &other) noexcept
+		{
+			if (this == &other)
+			{
 				return; // 自分自身との swap は何もしない
 			}
 
 			// バケット配列を入れ替え
-			for (size_type i = 0; i < Capacity; ++i) {
+			for (size_type i = 0; i < Capacity; ++i)
+			{
 				std::swap(buckets_[i], other.buckets_[i]);
 			}
 
@@ -544,15 +597,17 @@ namespace bluestl
 		 * @return 見つかった場合はインデックス、見つからなければnpos
 		 * @details 線形探索でバケットを走査します。例外は発生しません。
 		 */
-		constexpr size_type find_index(const Key& key) const noexcept
+		constexpr size_type find_index(const Key &key) const noexcept
 		{
 			size_type hash = bluestl::hash(key) % Capacity;
 			for (size_type i = 0; i < Capacity; ++i)
 			{
 				size_type idx = (hash + i) % Capacity;
+				// 未使用バケットに到達したら探索終了
 				if (!buckets_[idx].used)
 					return npos;
-				if (buckets_[idx].kv.first == key)
+				// !deleted && key一致 判定
+				if (!buckets_[idx].deleted && buckets_[idx].kv.first == key)
 					return idx;
 			}
 			return npos;
@@ -563,9 +618,9 @@ namespace bluestl
 		 * @return value_type型へのポインタ
 		 * @details reinterpret_castで変換します。例外は発生しません。
 		 */
-		constexpr value_type* to_value_type(bucket* b) const noexcept
+		constexpr value_type *to_value_type(bucket *b) const noexcept
 		{
-			return reinterpret_cast<value_type*>(&b->kv);
+			return reinterpret_cast<value_type *>(&b->kv);
 		}
 		/**
 		 * @brief バケット構造体からconst value_type型へのポインタに変換します。
@@ -573,16 +628,16 @@ namespace bluestl
 		 * @return const value_type型へのポインタ
 		 * @details reinterpret_castで変換します。例外は発生しません。
 		 */
-		constexpr const value_type* to_value_type(const bucket* b) const noexcept
+		constexpr const value_type *to_value_type(const bucket *b) const noexcept
 		{
-			return reinterpret_cast<const value_type*>(&b->kv);
+			return reinterpret_cast<const value_type *>(&b->kv);
 		}
 		/**
 		 * @brief 存在しないキーアクセス時に返すダミー値
 		 * @return 静的なT型ダミー値への参照
 		 * @details 例外は発生しません。
 		 */
-		static T& dummy()
+		static T &dummy()
 		{
 			static T d{};
 			return d;
@@ -594,11 +649,15 @@ namespace bluestl
 	 * @return 全ての要素が等しければtrue
 	 */
 	template <typename Key, typename T, std::size_t Capacity>
-	constexpr bool operator==(const fixed_hash_map<Key, T, Capacity>& lhs, const fixed_hash_map<Key, T, Capacity>& rhs) noexcept {
-		if (lhs.size() != rhs.size()) return false;
-		for (auto it = lhs.begin(); it != lhs.end(); ++it) {
+	constexpr bool operator==(const fixed_hash_map<Key, T, Capacity> &lhs, const fixed_hash_map<Key, T, Capacity> &rhs) noexcept
+	{
+		if (lhs.size() != rhs.size())
+			return false;
+		for (auto it = lhs.begin(); it != lhs.end(); ++it)
+		{
 			auto found = rhs.find(it->first);
-			if (found == rhs.end() || !(it->second == found->second)) return false;
+			if (found == rhs.end() || !(it->second == found->second))
+				return false;
 		}
 		return true;
 	}
@@ -608,7 +667,8 @@ namespace bluestl
 	 * @return 等しくなければtrue
 	 */
 	template <typename Key, typename T, std::size_t Capacity>
-	constexpr bool operator!=(const fixed_hash_map<Key, T, Capacity>& lhs, const fixed_hash_map<Key, T, Capacity>& rhs) noexcept {
+	constexpr bool operator!=(const fixed_hash_map<Key, T, Capacity> &lhs, const fixed_hash_map<Key, T, Capacity> &rhs) noexcept
+	{
 		return !(lhs == rhs);
 	}
 
@@ -617,14 +677,20 @@ namespace bluestl
 	 * @return lhsがrhsより辞書順で小さい場合true
 	 */
 	template <typename Key, typename T, std::size_t Capacity>
-	constexpr bool operator<(const fixed_hash_map<Key, T, Capacity>& lhs, const fixed_hash_map<Key, T, Capacity>& rhs) noexcept {
+	constexpr bool operator<(const fixed_hash_map<Key, T, Capacity> &lhs, const fixed_hash_map<Key, T, Capacity> &rhs) noexcept
+	{
 		auto it1 = lhs.begin();
 		auto it2 = rhs.begin();
-		for (; it1 != lhs.end() && it2 != rhs.end(); ++it1, ++it2) {
-			if (it1->first < it2->first) return true;
-			if (it2->first < it1->first) return false;
-			if (it1->second < it2->second) return true;
-			if (it2->second < it1->second) return false;
+		for (; it1 != lhs.end() && it2 != rhs.end(); ++it1, ++it2)
+		{
+			if (it1->first < it2->first)
+				return true;
+			if (it2->first < it1->first)
+				return false;
+			if (it1->second < it2->second)
+				return true;
+			if (it2->second < it1->second)
+				return false;
 		}
 		return lhs.size() < rhs.size();
 	}
@@ -634,7 +700,8 @@ namespace bluestl
 	 * @return lhsがrhsより辞書順で小さいか等しい場合true
 	 */
 	template <typename Key, typename T, std::size_t Capacity>
-	constexpr bool operator<=(const fixed_hash_map<Key, T, Capacity>& lhs, const fixed_hash_map<Key, T, Capacity>& rhs) noexcept {
+	constexpr bool operator<=(const fixed_hash_map<Key, T, Capacity> &lhs, const fixed_hash_map<Key, T, Capacity> &rhs) noexcept
+	{
 		return !(rhs < lhs);
 	}
 
@@ -643,7 +710,8 @@ namespace bluestl
 	 * @return lhsがrhsより辞書順で大きい場合true
 	 */
 	template <typename Key, typename T, std::size_t Capacity>
-	constexpr bool operator>(const fixed_hash_map<Key, T, Capacity>& lhs, const fixed_hash_map<Key, T, Capacity>& rhs) noexcept {
+	constexpr bool operator>(const fixed_hash_map<Key, T, Capacity> &lhs, const fixed_hash_map<Key, T, Capacity> &rhs) noexcept
+	{
 		return rhs < lhs;
 	}
 
@@ -652,7 +720,8 @@ namespace bluestl
 	 * @return lhsがrhsより辞書順で大きいか等しい場合true
 	 */
 	template <typename Key, typename T, std::size_t Capacity>
-	constexpr bool operator>=(const fixed_hash_map<Key, T, Capacity>& lhs, const fixed_hash_map<Key, T, Capacity>& rhs) noexcept {
+	constexpr bool operator>=(const fixed_hash_map<Key, T, Capacity> &lhs, const fixed_hash_map<Key, T, Capacity> &rhs) noexcept
+	{
 		return !(lhs < rhs);
 	}
 
