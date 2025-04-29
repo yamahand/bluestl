@@ -60,7 +60,7 @@ public:
      * @param alloc アロケータ
      */
     explicit small_buffer_vector(Allocator& alloc)
-        : m_allocator(alloc), m_data(reinterpret_cast<T*>(m_small_buffer)), m_size(0), m_capacity(SmallCapacity) {}
+        : m_allocator(alloc), m_data(reinterpret_cast<T*>(m_small_buffer)), m_size(0), m_capacity(SmallCapacity), m_data_address(reinterpret_cast<uintptr_t>(m_small_buffer)){}
 
     // コピー・ムーブコンストラクタ・代入演算子は省略（必要に応じて追加）
 
@@ -177,6 +177,7 @@ public:
         deallocate();
         m_data = new_data;
         m_capacity = new_capacity;
+        m_data_address = reinterpret_cast<uintptr_t>(m_data);
     }
     /**
      * @brief shrink_to_fit: ヒープ確保時のみ容量縮小
@@ -204,6 +205,7 @@ public:
             m_data = new_data;
             m_capacity = m_size;
         }
+        m_data_address = reinterpret_cast<uintptr_t>(m_data);
     }
     /**
      * @brief swap
@@ -213,30 +215,31 @@ public:
     void swap(small_buffer_vector& other) noexcept {
         BLUESTL_ASSERT(&m_allocator == &other.m_allocator);
         if (this == &other) return;
-        if (m_data == reinterpret_cast<T*>(m_small_buffer) && other.m_data == reinterpret_cast<T*>(other.m_small_buffer)) {
-            // 両方スタックバッファ
-            size_type min_size = m_size < other.m_size ? m_size : other.m_size;
-            for (size_type i = 0; i < min_size; ++i) {
-                std::swap(m_data[i], other.m_data[i]);
-            }
-            if (m_size > other.m_size) {
-                for (size_type i = other.m_size; i < m_size; ++i) {
-                    new (other.m_data + i) T(std::move(m_data[i]));
-                    m_data[i].~T();
-                }
-            } else if (other.m_size > m_size) {
-                for (size_type i = m_size; i < other.m_size; ++i) {
-                    new (m_data + i) T(std::move(other.m_data[i]));
-                    other.m_data[i].~T();
-                }
-            }
-            std::swap(m_size, other.m_size);
-        } else {
-            std::swap(m_data, other.m_data);
-            std::swap(m_size, other.m_size);
-            std::swap(m_capacity, other.m_capacity);
+
+        // 互いに相手の要素数分の容量を確保（必要ならヒープに移行）
+        if (m_capacity < other.m_size) reserve(other.m_size);
+        if (other.m_capacity < m_size) other.reserve(m_size);
+
+        size_type min_size = m_size < other.m_size ? m_size : other.m_size;
+        // 共通部分をswap
+        for (size_type i = 0; i < min_size; ++i) {
+            std::swap(m_data[i], other.m_data[i]);
         }
+        // 余剰分をmove＋構築＆破棄
+        if (m_size > other.m_size) {
+            for (size_type i = other.m_size; i < m_size; ++i) {
+                new (other.m_data + i) T(std::move(m_data[i]));
+                m_data[i].~T();
+            }
+        } else if (other.m_size > m_size) {
+            for (size_type i = m_size; i < other.m_size; ++i) {
+                new (m_data + i) T(std::move(other.m_data[i]));
+                other.m_data[i].~T();
+            }
+        }
+        std::swap(m_size, other.m_size);
     }
+
 
 private:
     Allocator& m_allocator;
@@ -244,6 +247,7 @@ private:
     size_type m_size;
     size_type m_capacity;
     alignas(T) unsigned char m_small_buffer[sizeof(T) * SmallCapacity];
+    std::uintptr_t m_data_address;
 
     void deallocate() {
         if (m_data != reinterpret_cast<T*>(m_small_buffer)) {
