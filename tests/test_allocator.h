@@ -42,10 +42,10 @@ public:
 		}
 		else {
 #if BLUESTL_USE_STD_PRINT
-            std::print("[TestAllocator] 不明なポインタの解放: {}\n", p);
+            std::print("[TestAllocator] {} 不明なポインタの解放: {}\n",get_name(), p);
 
 #else
-            std::printf("[TestAllocator] 不明なポインタの解放: %p\n", p);
+            std::printf("[TestAllocator] %s 不明なポインタの解放: %p\n", get_name(), p);
 #endif
 #if defined(_MSC_VER)
             __debugbreak();
