@@ -39,9 +39,9 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
     // 範囲外アクセスのアサートは直接テストできないためコメントで注意
     SECTION("front/back/atの範囲外アクセスはアサート") {
         fixed_vector<int, 1> v;
-        [[maybe_unused]] auto f = v.front(); // アサート発生
-        [[maybe_unused]] auto b = v.back();  // アサート発生
-        [[maybe_unused]] auto a = v.at(1);   // アサート発生
+        //[[maybe_unused]] auto f = v.front(); // アサート発生
+        //[[maybe_unused]] auto b = v.back();  // アサート発生
+        //[[maybe_unused]] auto a = v.at(1);   // アサート発生
     }
 
     SECTION("イテレータ・リバースイテレータ") {

@@ -17,15 +17,11 @@ public:
 
     ~TestAllocator() {
 #if BLUESTL_USE_STD_PRINT
-        if (allocate_count == deallocate_count) {
-            std::print("[TestAllocator] {} メモリリークなし (allocate: {}, deallocate: {})\n", get_name(), allocate_count, deallocate_count);
-        } else {
+        if (allocate_count != deallocate_count) {
             std::print("[TestAllocator] {} メモリリーク検出! (allocate: {}, deallocate: {})\n", get_name(), allocate_count, deallocate_count);
         }
 #else
-        if(allocate_count == deallocate_count) {
-            std::printf("[TestAllocator] %s メモリリークなし (allocate: %zu, deallocate: %zu)\n", get_name(), allocate_count, deallocate_count);
-        } else {
+        if(allocate_count != deallocate_count) {
             std::printf("[TestAllocator] %s メモリリーク検出! (allocate: %zu, deallocate: %zu)\n", get_name(), allocate_count, deallocate_count);
         }
 #endif
@@ -41,14 +37,21 @@ public:
     void deallocate(void* p, size_t) override {
         ++deallocate_count;
 		auto it = allocations.find(p);
-		if (it) {
+		if (it != allocations.end()) {
 			allocations.erase(it);
 		}
 		else {
 #if BLUESTL_USE_STD_PRINT
             std::print("[TestAllocator] 不明なポインタの解放: {}\n", p);
+
 #else
             std::printf("[TestAllocator] 不明なポインタの解放: %p\n", p);
+#endif
+#if defined(_MSC_VER)
+            __debugbreak();
+#elif defined(__GNUC__) || defined(__clang__)
+            __builtin_trap();
+            // または: raise(SIGTRAP);
 #endif
 		}
         ::operator delete(p);
