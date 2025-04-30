@@ -39,7 +39,7 @@ template <typename... Args>
 inline void logf(LogLevel level, const std::source_location loc, std::format_string<Args...> fmt, Args&&... args) {
     std::string message = std::format(fmt, std::forward<Args>(args)...);
     std::string with_loc = std::format("[{}:{}] {}", loc.file_name(), loc.line(), message);
-    log(level, with_loc);
+    //log(level, with_loc);
 }
 
 }  // namespace bluestl

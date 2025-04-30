@@ -26,4 +26,4 @@ BraceWrapping:                # 波括弧の配置に関する設定
   SplitEmptyRecord: false     # 空のstruct/classは1行にまとめない
   SplitEmptyNamespace: false  # 空のnamespaceは1行にまとめない
 Cpp11BracedListStyle: false   # C++11の初期化リストスタイルを無効化
-SpacesInBracedInitList: true  # 初期化リストの波括弧内にスペースを入れる
+# SpacesInBracedInitList: true
