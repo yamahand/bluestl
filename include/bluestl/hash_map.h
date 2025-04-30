@@ -1,5 +1,4 @@
-﻿\
-/**
+﻿/**
  * @file hash_map.h
  * @brief bluestl::hash_map コンテナの実装。
  *
@@ -14,7 +13,8 @@
 #include <cstdint>
 #include <utility>
 #include <cassert>
-#include <iterator>
+#include <iterator> // For iterator tags and distance
+#include <algorithm> // For std::max
 
 #include "log_macros.h"
 #include "hash.h"
@@ -38,21 +38,37 @@ namespace bluestl {
  */
 template <typename Key, typename T, typename Allocator>
 class hash_map {
+private:
     /**
-     * @brief バケット構造体。キーと値のペア、使用状態、削除状態を保持します。
+     * @brief バケット構造体。メモリレイアウトを最適化し、状態フラグをビットフィールドとして実装。
      */
     struct bucket {
         pair<Key, T> kv;      ///< キーと値のペア
-        bool used = false;    ///< このバケットが使用中かどうか
-        bool deleted = false; ///< このバケットが削除済み（トゥームストーン）かどうか
+        uint8_t flags = 0;    ///< 状態フラグ（ビットフィールド）
+        static constexpr uint8_t USED_FLAG = 1;     ///< 使用中フラグ
+        static constexpr uint8_t DELETED_FLAG = 2;  ///< 削除済みフラグ
+
+        constexpr bucket() noexcept : kv(), flags(0) {}
+
+        constexpr bool is_used() const noexcept { return flags & USED_FLAG; }
+        constexpr bool is_deleted() const noexcept { return flags & DELETED_FLAG; }
+        constexpr void set_used(bool value) noexcept {
+            if (value) flags |= USED_FLAG;
+            else flags &= ~USED_FLAG;
+        }
+        constexpr void set_deleted(bool value) noexcept {
+            if (value) flags |= DELETED_FLAG;
+            else flags &= ~DELETED_FLAG;
+        }
+        constexpr void clear_flags() noexcept { flags = 0; }
     };
 
-   public:
+public:
     // Forward declaration of iterators
     template <bool IsConst>
     class hash_iterator;
 
-   public:
+public:
     using key_type = Key;                 ///< キーの型
     using mapped_type = T;                ///< マップされる値の型
     using value_type = pair<const Key, T>; ///< キーと値のペアの型 (イテレータが指す型)
@@ -79,7 +95,7 @@ class hash_map {
      */
     template <bool IsConst>
     class hash_iterator {
-       public:
+    public:
         using iterator_category = std::forward_iterator_tag; ///< イテレータカテゴリ
         /** @brief イテレータが指す値の型。IsConst に応じて const 修飾されます。 */
         using value_type = std::conditional_t<IsConst, const pair<const Key, T>, pair<const Key, T>>;
@@ -125,9 +141,9 @@ class hash_map {
          * @pre イテレータは有効な要素を指している必要があります。
          */
         reference operator*() const noexcept {
-            BLUESTL_ASSERT(container_ && index_ < container_->capacity_ && container_->buckets_[index_].used &&
-                           !container_->buckets_[index_].deleted);
-            // const Key を持つ pair への参照を返すため reinterpret_cast を使用
+            validate();
+            BLUESTL_ASSERT(container_ && index_ < container_->capacity_ && container_->buckets_[index_].is_used() &&
+                           !container_->buckets_[index_].is_deleted());
             return *reinterpret_cast<pointer>(&container_->buckets_[index_].kv);
         }
 
@@ -137,9 +153,9 @@ class hash_map {
          * @pre イテレータは有効な要素を指している必要があります。
          */
         pointer operator->() const noexcept {
-            BLUESTL_ASSERT(container_ && index_ < container_->capacity_ && container_->buckets_[index_].used &&
-                           !container_->buckets_[index_].deleted);
-            // const Key を持つ pair へのポインタを返すため reinterpret_cast を使用
+            validate();
+            BLUESTL_ASSERT(container_ && index_ < container_->capacity_ && container_->buckets_[index_].is_used() &&
+                           !container_->buckets_[index_].is_deleted());
             return reinterpret_cast<pointer>(&container_->buckets_[index_].kv);
         }
 
@@ -174,7 +190,7 @@ class hash_map {
             return index_;
         }
 
-       private:
+    private:
         /** @brief このイテレータが属する hash_map コンテナへのポインタ。const イテレータでもコンテナの状態を変更しないため const。 */
         const hash_map* container_;
         /** @brief 現在指しているバケットのインデックス。 */
@@ -187,15 +203,25 @@ class hash_map {
         void advance_to_valid() noexcept {
             if (!container_) return;
 
-            while (index_ < container_->capacity_ &&
-                   (!container_->buckets_[index_].used || container_->buckets_[index_].deleted)) {
+            while (index_ < container_->capacity_) {
+                if (container_->buckets_[index_].is_used() && 
+                    !container_->buckets_[index_].is_deleted()) {
+                    break;
+                }
                 ++index_;
             }
 
-            // 有効な要素が見つからず、末尾に達した場合
             if (index_ >= container_->capacity_) {
-                index_ = container_->capacity_; // end() と同じ状態にする
+                index_ = container_->capacity_;
             }
+        }
+
+        /**
+         * @brief イテレータの有効性チェック
+         */
+        void validate() const noexcept {
+            BLUESTL_ASSERT(container_ && "Iterator has null container");
+            BLUESTL_ASSERT(index_ <= container_->capacity_ && "Iterator index out of bounds");
         }
     };
 
@@ -209,11 +235,38 @@ class hash_map {
     }
 
     /**
+     * @brief 範囲コンストラクタ。イテレータ範囲 [first, last) の要素でハッシュマップを初期化します。
+     * @tparam InputIt 入力イテレータの型。value_type (pair<const Key, T> または互換型) を指す必要があります。
+     * @param first 範囲の開始を示す入力イテレータ。
+     * @param last 範囲の終端を示す入力イテレータ。
+     * @param alloc 使用するアロケータへの参照。
+     */
+    template <typename InputIt>
+    hash_map(InputIt first, InputIt last, Allocator& alloc) noexcept
+        : size_(0), deleted_count_(0), capacity_(initial_capacity), allocator_(alloc), buckets_(nullptr) {
+        using category = typename std::iterator_traits<InputIt>::iterator_category;
+        size_type count = 0;
+        if constexpr (std::is_base_of_v<std::forward_iterator_tag, category>) {
+             count = std::distance(first, last);
+        } else {
+            for(auto it = first; it != last; ++it) {
+                ++count;
+            }
+        }
+
+        size_type required_capacity = (max_load_factor > 0.0f) ? static_cast<size_type>(count / max_load_factor) + 1 : count + 1;
+        capacity_ = std::max(initial_capacity, required_capacity);
+
+        allocate_buckets(capacity_);
+        insert(first, last);
+    }
+
+    /**
      * @brief デストラクタ。要素のデストラクタを呼び出し、確保したメモリを解放します。
      */
     ~hash_map() noexcept {
         if (buckets_) {
-            destroy_buckets(); // 要素のデストラクタ呼び出し
+            destroy_buckets();
             allocator_.deallocate(buckets_, capacity_ * sizeof(bucket));
         }
     }
@@ -225,10 +278,8 @@ class hash_map {
     hash_map(const hash_map& other) noexcept
         : size_(0), deleted_count_(0), capacity_(other.capacity_), allocator_(other.allocator_), buckets_(nullptr) {
         allocate_buckets(capacity_);
-        // 有効な要素のみをコピー
         for (size_type i = 0; i < other.capacity_; ++i) {
-            if (other.buckets_[i].used && !other.buckets_[i].deleted) {
-                // insert を使うことで、新しいバケット配列での正しい位置に配置される
+            if (other.buckets_[i].is_used() && !other.buckets_[i].is_deleted()) {
                 insert(other.buckets_[i].kv.first, other.buckets_[i].kv.second);
             }
         }
@@ -241,12 +292,9 @@ class hash_map {
      */
     hash_map& operator=(const hash_map& other) noexcept {
         if (this != &other) {
-            clear(); // 現在の内容をクリア
-            // 必要であれば容量を拡張
+            clear();
             if (capacity_ < other.capacity_) {
                 if (buckets_) {
-                    // 要素のデストラクタは clear() で呼ばれているはずだが念のため
-                    // destroy_buckets(); // 不要？ clear() で used=false になっている
                     allocator_.deallocate(buckets_, capacity_ * sizeof(bucket));
                     buckets_ = nullptr;
                 }
@@ -254,13 +302,11 @@ class hash_map {
                 allocate_buckets(capacity_);
             }
 
-            // 有効な要素のみをコピー
             for (size_type i = 0; i < other.capacity_; ++i) {
-                if (other.buckets_[i].used && !other.buckets_[i].deleted) {
+                if (other.buckets_[i].is_used() && !other.buckets_[i].is_deleted()) {
                     insert(other.buckets_[i].kv.first, other.buckets_[i].kv.second);
                 }
             }
-            // アロケータはコピーしない（参照なので）
         }
         return *this;
     }
@@ -273,9 +319,8 @@ class hash_map {
         : size_(other.size_),
           deleted_count_(other.deleted_count_),
           capacity_(other.capacity_),
-          allocator_(other.allocator_), // アロケータ参照はコピー
+          allocator_(other.allocator_),
           buckets_(other.buckets_) {
-        // ムーブ元のリソースを解放
         other.size_ = 0;
         other.deleted_count_ = 0;
         other.capacity_ = 0;
@@ -289,21 +334,16 @@ class hash_map {
      */
     hash_map& operator=(hash_map&& other) noexcept {
         if (this != &other) {
-            // 既存のリソースを解放
             if (buckets_) {
                 destroy_buckets();
                 allocator_.deallocate(buckets_, capacity_ * sizeof(bucket));
             }
 
-            // リソースをムーブ
             size_ = other.size_;
             deleted_count_ = other.deleted_count_;
             capacity_ = other.capacity_;
             buckets_ = other.buckets_;
-            // アロケータ参照はコピー (ムーブ元のアロケータを引き続き使う)
-            // allocator_ = other.allocator_; // 参照なので代入不要
 
-            // ムーブ元のリソースを解放
             other.size_ = 0;
             other.deleted_count_ = 0;
             other.capacity_ = 0;
@@ -340,12 +380,10 @@ class hash_map {
      */
     void clear() noexcept {
         for (size_type i = 0; i < capacity_; ++i) {
-            if (buckets_[i].used && !buckets_[i].deleted) {
-                // 要素のデストラクタを呼び出す
-                buckets_[i].kv.~pair(); // Key と T のデストラクタが呼ばれる
+            if (buckets_[i].is_used() && !buckets_[i].is_deleted()) {
+                buckets_[i].kv.~pair();
             }
-            buckets_[i].used = false;
-            buckets_[i].deleted = false;
+            buckets_[i].clear_flags();
         }
         size_ = 0;
         deleted_count_ = 0;
@@ -378,7 +416,6 @@ class hash_map {
      * @return 末尾の次を指すイテレータ。
      */
     iterator end() noexcept {
-        // capacity_ をインデックスとして渡すことで、advance_to_valid が end 状態にする
         return iterator(this, capacity_);
     }
     /**
@@ -406,25 +443,22 @@ class hash_map {
      */
     mapped_type& operator[](const key_type& key) noexcept {
         size_type idx = find_index(key);
-        if (idx != npos) return buckets_[idx].kv.second; // 既存の要素を返す
+        if (idx != npos) return buckets_[idx].kv.second;
 
-        // 新しい要素を挿入する必要がある
         if (should_rehash()) rehash(calculate_new_capacity());
 
-        idx = insert_index(key); // 挿入位置を探す（トゥームストーンも考慮）
+        idx = insert_index(key);
         if (idx != npos) {
-            // 新しい要素を構築 (placement new は不要、代入でOK)
-            buckets_[idx].kv.first = key; // キーをコピー
+            buckets_[idx].kv.first = key;
             buckets_[idx].kv.second = mapped_type();
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false; // 挿入なので削除済みではない
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
             return buckets_[idx].kv.second;
         }
 
-        // ここに到達するのは、rehash が適切に行われていればありえないはず
         BLUESTL_ASSERT(false && "Hash map insertion failed after rehash check");
-        return dummy_value(); // アサーション失敗時のフォールバック
+        return dummy_value();
     }
 
     /**
@@ -436,21 +470,17 @@ class hash_map {
      * @warning キーが存在しない場合にデフォルトコンストラクタが呼ばれるため、mapped_type はデフォルト構築可能である必要があります。
      */
     mapped_type& operator[](key_type&& key) noexcept {
-        size_type idx = find_index(key); // find_index は const& を取るのでムーブされない
-        if (idx != npos) return buckets_[idx].kv.second; // 既存の要素を返す
+        size_type idx = find_index(key);
+        if (idx != npos) return buckets_[idx].kv.second;
 
-        // 新しい要素を挿入する必要がある
         if (should_rehash()) rehash(calculate_new_capacity());
 
-        // insert_index も const& を取るのでムーブされない
         idx = insert_index(key);
         if (idx != npos) {
-            // 新しい要素を構築
-            buckets_[idx].kv.first = std::move(key); // キーをムーブ
-            // 値をデフォルト構築
+            buckets_[idx].kv.first = std::move(key);
             buckets_[idx].kv.second = mapped_type();
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false;
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
             return buckets_[idx].kv.second;
         }
@@ -469,7 +499,7 @@ class hash_map {
     mapped_type& at(const key_type& key) noexcept {
         size_type idx = find_index(key);
         BLUESTL_ASSERT(idx != npos && "hash_map::at key does not exist");
-        if (idx == npos) return dummy_value(); // リリースビルドでのフォールバック
+        if (idx == npos) return dummy_value();
         return buckets_[idx].kv.second;
     }
 
@@ -483,9 +513,7 @@ class hash_map {
     const mapped_type& at(const key_type& key) const noexcept {
         size_type idx = find_index(key);
         BLUESTL_ASSERT(idx != npos && "hash_map::at key does not exist");
-        if (idx == npos) return dummy_value(); // リリースビルドでのフォールバック
-        // const 版なので dummy_value() は const& を返すべきだが、現状は非 const
-        // TODO: const 版の dummy_value を用意するか、設計を見直す
+        if (idx == npos) return const_dummy_value();
         return buckets_[idx].kv.second;
     }
 
@@ -500,7 +528,7 @@ class hash_map {
         if (idx != npos) {
             return optional<mapped_type&>(buckets_[idx].kv.second);
         }
-        return optional<mapped_type&>(); // 値なし optional
+        return optional<mapped_type&>();
     }
 
     /**
@@ -514,7 +542,7 @@ class hash_map {
         if (idx != npos) {
             return optional<const mapped_type&>(buckets_[idx].kv.second);
         }
-        return optional<const mapped_type&>(); // 値なし optional
+        return optional<const mapped_type&>();
     }
 
     /**
@@ -525,29 +553,25 @@ class hash_map {
      * @return pair<iterator, bool> 挿入された要素を指すイテレータと、挿入が成功したか (true) / キーが既に存在したか (false) を示す bool 値のペア。
      */
     pair<iterator, bool> insert(const key_type& key, const mapped_type& value) noexcept {
-        // Check if we need to rehash
         if (should_rehash()) rehash(calculate_new_capacity());
 
-        // Check if key already exists
         size_type idx = find_index(key);
         if (idx != npos) {
-            return { iterator(this, idx), false };  // Key already exists
+            return { iterator(this, idx), false };
         }
 
-        // Find a spot to insert
         idx = insert_index(key);
         if (idx != npos) {
             buckets_[idx].kv.first = key;
             buckets_[idx].kv.second = value;
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false; // 新規挿入なので削除済みではない
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
-            return { iterator(this, idx), true }; // 挿入成功
+            return { iterator(this, idx), true };
         }
 
-        // Should never happen if rehashing works correctly
         BLUESTL_ASSERT(false && "Hash map insertion failed");
-        return { end(), false }; // 失敗を示す
+        return { end(), false };
     }
 
     /**
@@ -560,23 +584,37 @@ class hash_map {
     pair<iterator, bool> insert(key_type&& key, mapped_type&& value) noexcept {
         if (should_rehash()) rehash(calculate_new_capacity());
 
-        size_type idx = find_index(key); // find_index は const& を取る
+        size_type idx = find_index(key);
         if (idx != npos) {
             return { iterator(this, idx), false };
         }
 
-        idx = insert_index(key); // insert_index は const& を取る
+        idx = insert_index(key);
         if (idx != npos) {
-            buckets_[idx].kv.first = std::move(key);   // キーをムーブ
-            buckets_[idx].kv.second = std::move(value); // 値をムーブ
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false;
+            buckets_[idx].kv.first = std::move(key);
+            buckets_[idx].kv.second = std::move(value);
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
             return { iterator(this, idx), true };
         }
 
         BLUESTL_ASSERT(false && "Hash map insertion failed");
         return { end(), false };
+    }
+
+    /**
+     * @brief イテレータ範囲 [first, last) の要素を挿入します。
+     * @tparam InputIt 入力イテレータの型。value_type (pair<const Key, T> または互換型) を指す必要があります。
+     * @param first 範囲の開始を示す入力イテレータ。
+     * @param last 範囲の終端を示す入力イテレータ。
+     * @note 各要素について insert(key, value) を呼び出します。キーが既に存在する場合は挿入されません。
+     */
+    template <typename InputIt>
+    void insert(InputIt first, InputIt last) noexcept {
+        for (; first != last; ++first) {
+            insert(first->first, first->second);
+        }
     }
 
     /**
@@ -587,8 +625,6 @@ class hash_map {
      * @param args 値を構築するための引数。完全転送されます。
      * @return pair<iterator, bool> 挿入された要素または既存の要素を指すイテレータと、
      *         挿入が行われたか (true) / キーが既に存在したか (false) を示す bool 値のペア。
-     * @note std::unordered_map::emplace とは異なり、キーが既存の場合に引数から値を構築しません。
-     *       この動作は try_emplace と同じです。
      */
     template <typename... Args>
     pair<iterator, bool> emplace(const key_type& key, Args&&... args) noexcept {
@@ -603,8 +639,6 @@ class hash_map {
      * @param args 値を構築するための引数。完全転送されます。
      * @return pair<iterator, bool> 挿入された要素または既存の要素を指すイテレータと、
      *         挿入が行われたか (true) / キーが既に存在したか (false) を示す bool 値のペア。
-     * @note std::unordered_map::emplace とは異なり、キーが既存の場合に引数から値を構築しません。
-     *       この動作は try_emplace と同じです。
      */
     template <typename... Args>
     pair<iterator, bool> emplace(key_type&& key, Args&&... args) noexcept {
@@ -625,18 +659,16 @@ class hash_map {
         if (should_rehash()) rehash(calculate_new_capacity());
         size_type idx = find_index(key);
         if (idx != npos) {
-            // キーが既に存在する場合、何もしない
             return { iterator(this, idx), false };
         }
         idx = insert_index(key);
         if (idx != npos) {
             buckets_[idx].kv.first = key;
-            // placement new を使用して、指定された引数で値を直接構築
             new (&buckets_[idx].kv.second) mapped_type(std::forward<Args>(args)...);
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false;
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
-            return { iterator(this, idx), true }; // 挿入成功
+            return { iterator(this, idx), true };
         }
         BLUESTL_ASSERT(false && "Hash map try_emplace failed");
         return { end(), false };
@@ -654,20 +686,18 @@ class hash_map {
     template <typename... Args>
     pair<iterator, bool> try_emplace(key_type&& key, Args&&... args) noexcept {
         if (should_rehash()) rehash(calculate_new_capacity());
-        size_type idx = find_index(key); // find_index は const& を取る
+        size_type idx = find_index(key);
         if (idx != npos) {
-            // キーが既に存在する場合、何もしない
             return { iterator(this, idx), false };
         }
-        idx = insert_index(key); // insert_index は const& を取る
+        idx = insert_index(key);
         if (idx != npos) {
-            buckets_[idx].kv.first = std::move(key); // キーをムーブ
-            // placement new を使用して、指定された引数で値を直接構築
+            buckets_[idx].kv.first = std::move(key);
             new (&buckets_[idx].kv.second) mapped_type(std::forward<Args>(args)...);
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false;
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
-            return { iterator(this, idx), true }; // 挿入成功
+            return { iterator(this, idx), true };
         }
         BLUESTL_ASSERT(false && "Hash map try_emplace failed");
         return { end(), false };
@@ -680,17 +710,13 @@ class hash_map {
      */
     bool erase(const key_type& key) noexcept {
         size_type idx = find_index(key);
-        if (idx == npos) return false; // キーが見つからない
+        if (idx == npos) return false;
 
-        // 要素を削除済みとしてマーク（トゥームストーン）
-        buckets_[idx].deleted = true;
-        // 要素のデストラクタはここでは呼ばない（再ハッシュ時または clear/デストラクタで処理）
+        buckets_[idx].set_deleted(true);
         --size_;
         ++deleted_count_;
 
-        // トゥームストーンが多すぎる場合は、再ハッシュを検討
-        // （単純化のため、削除要素数が有効要素数を超えたらリハッシュ）
-        if (deleted_count_ > size_) rehash(capacity_); // 現在の容量でリハッシュ（トゥームストーン除去）
+        if (deleted_count_ > size_) rehash(capacity_);
 
         return true;
     }
@@ -703,28 +729,20 @@ class hash_map {
      */
     iterator erase(iterator pos) noexcept {
         BLUESTL_ASSERT(pos != end() && "Cannot erase end iterator");
-        if (pos == end()) return end(); // アサーション無効時のガード
+        if (pos == end()) return end();
 
-        size_type idx = pos.get_index(); // イテレータからインデックスを取得
-        iterator next_it(this, idx); // 次のイテレータを準備
-        ++next_it; // 先にインクリメントしておく
+        size_type idx = pos.get_index();
+        iterator next_it(this, idx);
+        ++next_it;
 
-        if (idx < capacity_ && buckets_[idx].used && !buckets_[idx].deleted) {
-            buckets_[idx].deleted = true; // トゥームストーンを設定
-            // デストラクタは呼ばない
+        if (idx < capacity_ && buckets_[idx].is_used() && !buckets_[idx].is_deleted()) {
+            buckets_[idx].set_deleted(true);
             --size_;
             ++deleted_count_;
-
-            // トゥームストーンが多すぎる場合はリハッシュ
             if (deleted_count_ > size_) rehash(capacity_);
-            // リハッシュが発生した場合、next_it は無効になる可能性があるが、
-            // C++標準の erase と同様に、削除後の次の要素を指すイテレータを返す仕様とする。
-            // リハッシュ後の正しい次の要素を見つけるのは複雑なため、
-            // ここではリハッシュ前の次の要素（の可能性がある位置）を指すイテレータを返す。
-            // より厳密にするには、リハッシュ後にキーで再検索する必要がある。
         }
 
-        return next_it; // 削除前の次の要素を指すイテレータを返す
+        return next_it;
     }
 
     /**
@@ -735,14 +753,14 @@ class hash_map {
      */
     iterator erase(const_iterator pos) noexcept {
         BLUESTL_ASSERT(pos != cend() && "Cannot erase end iterator");
-        if (pos == cend()) return end(); // アサーション無効時のガード
+        if (pos == cend()) return end();
 
         size_type idx = pos.get_index();
-        iterator next_it(this, idx); // 非 const の next イテレータ
+        iterator next_it(this, idx);
         ++next_it;
 
-        if (idx < capacity_ && buckets_[idx].used && !buckets_[idx].deleted) {
-            buckets_[idx].deleted = true;
+        if (idx < capacity_ && buckets_[idx].is_used() && !buckets_[idx].is_deleted()) {
+            buckets_[idx].set_deleted(true);
             --size_;
             ++deleted_count_;
             if (deleted_count_ > size_) rehash(capacity_);
@@ -752,14 +770,32 @@ class hash_map {
     }
 
     /**
-     * @brief 指定されたキーを持つ要素を検索します。
+     * @brief イテレータ範囲 [first, last) の要素を削除します。
+     * @param first 削除する範囲の開始を示すイテレータ。
+     * @param last 削除する範囲の終端を示すイテレータ。
+     * @return 削除された最後の要素の次の要素を指すイテレータ (last と同じになるはず)。
+     */
+    iterator erase(iterator first, iterator last) noexcept {
+        if (first == end() || first == last) {
+            return last;
+        }
+
+        iterator current = first;
+        while (current != last) {
+            current = erase(current);
+        }
+        return current;
+    }
+
+    /**
+     * @brief 指定されたキーに対応する要素を検索します。
      * @param key 検索するキー。
      * @return キーが見つかった場合はその要素を指すイテレータ、見つからなかった場合は end()。
      */
     iterator find(const key_type& key) noexcept {
         size_type idx = find_index(key);
-        if (idx == npos) return end(); // 見つからない場合は end()
-        return iterator(this, idx); // 見つかった要素を指すイテレータ
+        if (idx == npos) return end();
+        return iterator(this, idx);
     }
 
     /**
@@ -769,8 +805,8 @@ class hash_map {
      */
     const_iterator find(const key_type& key) const noexcept {
         size_type idx = find_index(key);
-        if (idx == npos) return cend(); // 見つからない場合は cend()
-        return const_iterator(this, idx); // 見つかった要素を指す const イテレータ
+        if (idx == npos) return cend();
+        return const_iterator(this, idx);
     }
 
     /**
@@ -793,19 +829,17 @@ class hash_map {
         if (should_rehash()) rehash(calculate_new_capacity());
         size_type idx = find_index(key);
         if (idx != npos) {
-            // キーが存在する場合、値を代入
             buckets_[idx].kv.second = value;
-            return { iterator(this, idx), false }; // 代入を示す false
+            return { iterator(this, idx), false };
         }
-        // キーが存在しない場合、挿入
         idx = insert_index(key);
         if (idx != npos) {
             buckets_[idx].kv.first = key;
             buckets_[idx].kv.second = value;
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false; // 新規挿入なので削除済みではない
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
-            return { iterator(this, idx), true }; // 新規挿入を示す true
+            return { iterator(this, idx), true };
         }
         BLUESTL_ASSERT(false && "Hash map insert_or_assign failed");
         return { end(), false };
@@ -820,27 +854,36 @@ class hash_map {
      */
     pair<iterator, bool> insert_or_assign(key_type&& key, mapped_type&& value) noexcept {
         if (should_rehash()) rehash(calculate_new_capacity());
-        size_type idx = find_index(key); // find_index は const& を取る
+        size_type idx = find_index(key);
         if (idx != npos) {
-            // キーが存在する場合、値をムーブ代入
             buckets_[idx].kv.second = std::move(value);
-            return { iterator(this, idx), false }; // 代入を示す false
+            return { iterator(this, idx), false };
         }
-        // キーが存在しない場合、挿入
-        idx = insert_index(key); // insert_index は const& を取る
+        idx = insert_index(key);
         if (idx != npos) {
-            buckets_[idx].kv.first = std::move(key);   // キーをムーブ
-            buckets_[idx].kv.second = std::move(value); // 値をムーブ
-            buckets_[idx].used = true;
-            buckets_[idx].deleted = false;
+            buckets_[idx].kv.first = std::move(key);
+            buckets_[idx].kv.second = std::move(value);
+            buckets_[idx].set_used(true);
+            buckets_[idx].set_deleted(false);
             ++size_;
-            return { iterator(this, idx), true }; // 新規挿入を示す true
+            return { iterator(this, idx), true };
         }
         BLUESTL_ASSERT(false && "Hash map insert_or_assign failed");
         return { end(), false };
     }
 
-   private:
+    /**
+     * @brief Range-based for対応
+     */
+    struct range_type {
+        hash_map& map;
+        auto begin() noexcept { return map.begin(); }
+        auto end() noexcept { return map.end(); }
+    };
+
+    range_type entries() noexcept { return {*this}; }
+
+private:
     /** @brief バケット配列へのポインタ。 */
     bucket* buckets_;
     /** @brief 現在格納されている要素数（削除済みを除く）。 */
@@ -861,11 +904,9 @@ class hash_map {
      * @param n 割り当てるバケットの数。
      */
     void allocate_buckets(size_type n) noexcept {
-        // アロケータを使用してメモリを確保
         buckets_ = static_cast<bucket*>(allocator_.allocate(n * sizeof(bucket)));
-        // placement new を使用して、確保したメモリ上に bucket オブジェクトを構築
         for (size_type i = 0; i < n; ++i) {
-            new (&buckets_[i]) bucket(); // デフォルトコンストラクタを呼び出す
+            new (&buckets_[i]) bucket();
         }
     }
 
@@ -875,178 +916,157 @@ class hash_map {
      */
     void destroy_buckets() noexcept {
         for (size_type i = 0; i < capacity_; ++i) {
-            if (buckets_[i].used && !buckets_[i].deleted) {
-                // pair<Key, T> のデストラクタを明示的に呼び出す
+            if (buckets_[i].is_used() && !buckets_[i].is_deleted()) {
                 buckets_[i].kv.~pair();
             }
-            // used や deleted フラグは変更しない
         }
     }
 
     /**
      * @brief 再ハッシュが必要かどうかを判断します。
-     *        負荷率（(要素数 + 削除済み要素数) / 容量）が最大負荷率を超える場合に true を返します。
-     *        挿入前にチェックするため、要素数を +1 して評価します。
      * @return 再ハッシュが必要な場合は true、そうでない場合は false。
      */
     bool should_rehash() const noexcept {
-        // 負荷率 = (有効要素数 + トゥームストーン数) / 容量
-        // 次の挿入で負荷率が max_load_factor を超えるかチェック
         return (size_ + 1 + deleted_count_) > static_cast<size_type>(capacity_ * max_load_factor);
     }
 
     /**
-     * @brief 再ハッシュ時の新しい容量を計算します。現在の容量の2倍を返します。
+     * @brief 再ハッシュ時の新しい容量を計算します。
      * @return 新しい容量。
      */
     size_type calculate_new_capacity() const noexcept {
-        // 単純に2倍する。0 の場合は initial_capacity になるように考慮が必要だが、
-        // 最初の allocate_buckets で initial_capacity が設定されるため、capacity_ が 0 になることは通常ない。
         return capacity_ > 0 ? capacity_ * 2 : initial_capacity;
     }
 
     /**
+     * @brief 型特性に基づいて要素を移動またはコピー
+     */
+    template<typename K, typename V>
+    void transfer_element(K&& key, V&& value, size_type idx) noexcept {
+        if constexpr (std::is_nothrow_move_constructible_v<key_type> &&
+                     std::is_nothrow_move_constructible_v<mapped_type>) {
+            buckets_[idx].kv.first = std::move(key);
+            buckets_[idx].kv.second = std::move(value);
+        } else {
+            buckets_[idx].kv.first = key;
+            buckets_[idx].kv.second = value;
+        }
+        buckets_[idx].set_used(true);
+        buckets_[idx].set_deleted(false);
+    }
+
+    /**
      * @brief ハッシュマップを指定された新しい容量に再ハッシュします。
-     *        新しいバケット配列を割り当て、既存の有効な要素を新しい配列に移動（再挿入）し、
-     *        古いバケット配列を解放します。トゥームストーンはこの過程で除去されます。
-     * @param new_capacity 新しいバケット配列の容量。
      */
     void rehash(size_type new_capacity) noexcept {
         bucket* old_buckets = buckets_;
         size_type old_capacity = capacity_;
-        size_type old_size = size_; // 再ハッシュ前の有効要素数を保存
+        size_type old_size = size_;
 
-        // 新しい容量でバケットを確保
         allocate_buckets(new_capacity);
-        // メンバ変数を更新
-        size_ = 0; // 新しいバケットに挿入し直すのでリセット
-        deleted_count_ = 0; // トゥームストーンはコピーしないのでリセット
+        size_ = 0;
+        deleted_count_ = 0;
         capacity_ = new_capacity;
 
-        // 古いバケットから新しいバケットへ要素を移動（再挿入）
         for (size_type i = 0; i < old_capacity; ++i) {
-            if (old_buckets[i].used && !old_buckets[i].deleted) {
-                // insert を使用して新しいバケット配列に要素を挿入
-                // これにより、新しいハッシュ値に基づいて正しい位置に配置される
-                // ムーブではなくコピーで挿入する (Key, T がムーブ可能とは限らないため)
-                // TODO: Key, T がムーブ可能ならムーブを検討
-                insert(old_buckets[i].kv.first, old_buckets[i].kv.second);
+            if (old_buckets[i].is_used() && !old_buckets[i].is_deleted()) {
+                size_type idx = insert_index(old_buckets[i].kv.first);
+                if (idx != npos) {
+                    transfer_element(
+                        std::move(old_buckets[i].kv.first),
+                        std::move(old_buckets[i].kv.second),
+                        idx
+                    );
+                    ++size_;
+                }
             }
         }
 
-        // 再ハッシュ後に要素数が一致するか検証
-        BLUESTL_ASSERT(size_ == old_size && "Some elements were lost during rehash");
+        BLUESTL_ASSERT(size_ == old_size && "Element count mismatch after rehash");
 
-        // 古いバケットの要素のデストラクタを呼び出す (allocate_buckets で構築されたもの)
-        // 注意: old_buckets の各要素のデストラクタを呼ぶ必要がある
         for (size_type i = 0; i < old_capacity; ++i) {
-             if (old_buckets[i].used && !old_buckets[i].deleted) {
-                 // insert でコピーされたので、元の要素のデストラクタを呼ぶ
-                 old_buckets[i].kv.~pair();
-             }
-             // bucket 自体のデストラクタは trivial なので不要
+            if (old_buckets[i].is_used() && !old_buckets[i].is_deleted()) {
+                old_buckets[i].kv.~pair();
+            }
         }
 
-
-        // 古いバケット配列のメモリを解放
         allocator_.deallocate(old_buckets, old_capacity * sizeof(bucket));
     }
 
     /**
-     * @brief 指定されたキーに対応するバケットのインデックスを検索します。
-     *        二次プロービングを使用して衝突を解決します。
-     * @param key 検索するキー。
-     * @return キーが見つかった場合はそのバケットのインデックス、見つからなかった場合は npos。
+     * @brief 二次プロービング用の補助関数。
+     */
+    constexpr size_type probe_next(size_type base_idx, size_type probe_count) const noexcept {
+        size_type step = (probe_count * probe_count + probe_count) >> 1;
+        return (base_idx + step) % capacity_;
+    }
+
+    /**
+     * @brief キー検索用の最適化されたプロービング処理
      */
     size_type find_index(const key_type& key) const noexcept {
-        if (capacity_ == 0) return npos; // 容量が 0 の場合は検索不可
+        if (capacity_ == 0) return npos;
 
-        size_type hash_val = bluestl::hash(key) % capacity_; // 初期ハッシュ位置
-        size_type tombstone_idx = npos; // 最初に見つかったトゥームストーンの位置
+        const size_type hash_val = bluestl::hash(key) % capacity_;
+        size_type probe_count = 0;
 
-        // 二次プロービング: idx = (hash + i*i) % capacity
-        for (size_type i = 0; i < capacity_; ++i) { // 最大 capacity 回試行
-            size_type idx = (hash_val + i * i) % capacity_;
-
-            if (!buckets_[idx].used) {
-                // 空のスロットが見つかった -> キーは存在しない
-                // もし途中でトゥームストーンが見つかっていたとしても、その先にキーはない
+        while (probe_count < capacity_) {
+            size_type idx = probe_next(hash_val, probe_count);
+            
+            if (!buckets_[idx].is_used()) {
                 return npos;
             }
-
-            if (buckets_[idx].deleted) {
-                // トゥームストーンが見つかった
-                // 検索は続行するが、挿入のために位置を覚えておく必要はない（find なので）
-                continue; // 次のプローブ位置へ
-            }
-
-            // 使用中のバケットが見つかった
-            if (buckets_[idx].kv.first == key) {
-                // キーが一致した -> 見つかった
+            
+            if (!buckets_[idx].is_deleted() && buckets_[idx].kv.first == key) {
                 return idx;
             }
-        }
 
-        // テーブルを一周しても見つからなかった（またはすべてトゥームストーンだった）
+            ++probe_count;
+        }
         return npos;
     }
 
     /**
      * @brief 新しいキーを挿入するための適切なバケットインデックスを検索します。
-     *        空のスロット、または最初に見つかったトゥームストーンのスロットを返します。
-     *        キーが既に存在する場合は、そのインデックスを返します（挿入は行われない）。
-     *        二次プロービングを使用します。
-     * @param key 挿入するキー。
-     * @return 挿入に適したインデックス、またはキーが既に存在する場合はそのインデックス。
-     *         テーブルが満杯（空きもトゥームストーンもない）の場合は npos を返す可能性があるが、
-     *         通常は should_rehash() で事前にリハッシュされるため発生しないはず。
      */
     size_type insert_index(const key_type& key) const noexcept {
-        if (capacity_ == 0) return npos; // 容量 0 は異常系
+        if (capacity_ == 0) return npos;
 
         size_type hash_val = bluestl::hash(key) % capacity_;
-        size_type first_deleted = npos; // 最初に見つかったトゥームストーンのインデックス
+        size_type first_deleted = npos;
 
-        // 二次プロービング
         for (size_type i = 0; i < capacity_; ++i) {
-            size_type idx = (hash_val + i * i) % capacity_;
+            size_type idx = probe_next(hash_val, i);
 
-            if (!buckets_[idx].used) {
-                // 空のスロットが見つかった
-                // もしトゥームストーンが先に見つかっていればそちらを優先して返す
-                // そうでなければ、この空きスロットを返す
+            if (!buckets_[idx].is_used()) {
                 return (first_deleted != npos) ? first_deleted : idx;
             }
 
-            if (buckets_[idx].deleted) {
-                // トゥームストーンが見つかった
-                // 最初に見つかったトゥームストーンの位置を記録しておく
+            if (buckets_[idx].is_deleted()) {
                 if (first_deleted == npos) {
                     first_deleted = idx;
                 }
-                // 挿入位置を探しているので、検索は続行
             } else if (buckets_[idx].kv.first == key) {
-                // キーが既に存在する -> そのインデックスを返す (挿入は行われない)
                 return idx;
             }
         }
 
-        // テーブルを一周しても空きスロットが見つからなかった場合
-        // （理論上、負荷率管理とリハッシュが正しければここには到達しないはず）
-        // もしトゥームストーンが見つかっていれば、その位置を返す
-        // （テーブルがトゥームストーンで埋まっている場合など）
-        return first_deleted; // first_deleted が npos の場合、挿入不可を示す
+        return first_deleted;
     }
 
     /**
      * @brief at() などでキーが見つからなかった場合に返すダミーの値への参照。
-     * @return mapped_type の静的なデフォルト構築オブジェクトへの参照。
-     * @warning この関数が返す参照への書き込みは未定義動作を引き起こす可能性があります。
-     *          主にアサーション無効時のフォールバックとして使用されます。
-     *          const 版の at() のために const バージョンも必要になる可能性があります。
      */
     static mapped_type& dummy_value() noexcept {
-        static mapped_type dummy{}; // デフォルト構築された静的オブジェクト
+        static mapped_type dummy{};
+        return dummy;
+    }
+
+    /**
+     * @brief const版のダミー値参照を返す関数
+     */
+    static const mapped_type& const_dummy_value() noexcept {
+        static const mapped_type dummy{};
         return dummy;
     }
 };

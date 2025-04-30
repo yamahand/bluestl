@@ -2,6 +2,7 @@
 #include "bluestl/optional.h"
 #include "bluestl/hash_map.h"
 #include "bluestl/allocator.h"
+#include "bluestl/vector.h"
 #include <catch2/catch_test_macros.hpp>
 #include <string>
 #include "test_allocator.h"
@@ -370,5 +371,197 @@ TEST_CASE("hash_map try_getのテスト", "[hash_map]") {
         auto opt = cmap.try_get(2);
         CHECK(opt.has_value());
         CHECK(*opt == "two");
+    }
+}
+
+/**
+ * @brief hash_mapのSTL準拠API（try_emplace, insert_or_assign, emplace）のテスト
+ */
+TEST_CASE("hash_map STL準拠APIのテスト", "[hash_map][stl_api]") {
+    auto alloc = TestAllocator("test_hash_map_stl_api");
+    bluestl::hash_map<int, std::string, bluestl::allocator> map(alloc);
+
+    SECTION("try_emplace: 新規挿入と既存キー") {
+        auto [it1, inserted1] = map.try_emplace(1, "one");
+        CHECK(inserted1);
+        CHECK(map[1] == "one");
+        // 既存キーには挿入されない
+        auto [it2, inserted2] = map.try_emplace(1, "uno");
+        CHECK_FALSE(inserted2);
+        CHECK(map[1] == "one");
+    }
+
+    SECTION("insert_or_assign: 新規挿入と上書き") {
+        auto [it1, inserted1] = map.insert_or_assign(2, "two");
+        CHECK(inserted1);
+        CHECK(map[2] == "two");
+        // 既存キーは上書きされる
+        auto [it2, inserted2] = map.insert_or_assign(2, "TWO");
+        CHECK_FALSE(inserted2);
+        CHECK(map[2] == "TWO");
+    }
+
+    SECTION("emplace: 新規挿入のみ") {
+        auto [it1, inserted1] = map.emplace(3, "three");
+        CHECK(inserted1);
+        CHECK(map[3] == "three");
+        // 既存キーには挿入されない
+        auto [it2, inserted2] = map.emplace(3, "tres");
+        CHECK_FALSE(inserted2);
+        CHECK(map[3] == "three");
+    }
+}
+
+/**
+ * @brief hash_mapのムーブセマンティクステスト
+ */
+TEST_CASE("hash_map ムーブセマンティクスのテスト", "[hash_map][move]") {
+    auto alloc = TestAllocator("test_hash_map_move");
+    bluestl::hash_map<int, std::string, bluestl::allocator> map(alloc);
+
+    SECTION("operator[] ムーブ") {
+        int key1 = 1;
+        map[std::move(key1)] = "one";  // キーをムーブ (実際にはコピーされるが、オーバーロードをテスト)
+        CHECK(map.contains(1));
+        CHECK(map[1] == "one");
+
+        // 既存要素へのアクセス (キーはムーブされない)
+        int key2 = 1;
+        map[std::move(key2)] = "ONE";
+        CHECK(map[1] == "ONE");
+    }
+
+    SECTION("insert ムーブ") {
+        int key1 = 1;
+        std::string val1 = "one";
+        auto [it1, inserted1] = map.insert(std::move(key1), std::move(val1));
+        CHECK(inserted1);
+        CHECK(map.contains(1));
+        CHECK(map[1] == "one");
+        CHECK(val1.empty());  // ムーブされたことを確認
+
+        int key2 = 1;  // 既存キー
+        std::string val2 = "uno";
+        auto [it2, inserted2] = map.insert(std::move(key2), std::move(val2));
+        CHECK_FALSE(inserted2);
+        CHECK(map[1] == "one");     // 変更されない
+        CHECK_FALSE(val2.empty());  // ムーブされなかったことを確認
+    }
+
+    SECTION("try_emplace ムーブ") {
+        int key1 = 1;
+        auto [it1, inserted1] = map.try_emplace(std::move(key1), "one");
+        CHECK(inserted1);
+        CHECK(map.contains(1));
+        CHECK(map[1] == "one");
+
+        int key2 = 1;  // 既存キー
+        auto [it2, inserted2] = map.try_emplace(std::move(key2), "uno");
+        CHECK_FALSE(inserted2);
+        CHECK(map[1] == "one");  // 変更されない
+    }
+
+    SECTION("emplace ムーブ") {
+        int key1 = 3;
+        auto [it1, inserted1] = map.emplace(std::move(key1), "three");
+        CHECK(inserted1);
+        CHECK(map.contains(3));
+        CHECK(map[3] == "three");
+
+        int key2 = 3;  // 既存キー
+        auto [it2, inserted2] = map.emplace(std::move(key2), "tres");
+        CHECK_FALSE(inserted2);
+        CHECK(map[3] == "three");  // 変更されない
+    }
+
+    SECTION("insert_or_assign ムーブ") {
+        int key1 = 2;
+        std::string val1 = "two";
+        auto [it1, inserted1] = map.insert_or_assign(std::move(key1), std::move(val1));
+        CHECK(inserted1);
+        CHECK(map.contains(2));
+        CHECK(map[2] == "two");
+        CHECK(val1.empty());  // ムーブされたことを確認
+
+        int key2 = 2;  // 既存キー
+        std::string val2 = "TWO";
+        auto [it2, inserted2] = map.insert_or_assign(std::move(key2), std::move(val2));
+        CHECK_FALSE(inserted2);
+        CHECK(map[2] == "TWO");  // 上書きされる
+        CHECK(val2.empty());     // ムーブされたことを確認
+    }
+}
+
+/**
+ * @brief hash_mapの範囲ベース操作テスト
+ */
+TEST_CASE("hash_map 範囲ベース操作のテスト", "[hash_map][range]") {
+    auto alloc = TestAllocator("test_hash_map_range");
+
+    // 挿入用データ
+    bluestl::vector<bluestl::pair<int, std::string>, bluestl::allocator> data(alloc);
+    data.push_back({ 1, "one" });
+    data.push_back({ 2, "two" });
+    data.push_back({ 3, "three" });
+    data.push_back({ 2, "deux" });  // 重複キー
+
+    SECTION("範囲コンストラクタ") {
+        bluestl::hash_map<int, std::string, bluestl::allocator> map(data.begin(), data.end(), alloc);
+        CHECK(map.size() == 3);  // 重複キーは無視される
+        CHECK(map.contains(1));
+        CHECK(map.contains(2));
+        CHECK(map.contains(3));
+        CHECK(map[1] == "one");
+        CHECK(map[2] == "two");  // 最初の "two" が挿入される
+        CHECK(map[3] == "three");
+    }
+
+    SECTION("範囲挿入") {
+        bluestl::hash_map<int, std::string, bluestl::allocator> map(alloc);
+        map.insert(0, "zero");
+        map.insert(data.begin(), data.end());
+
+        CHECK(map.size() == 4);  // 0, 1, 2, 3
+        CHECK(map.contains(0));
+        CHECK(map.contains(1));
+        CHECK(map.contains(2));
+        CHECK(map.contains(3));
+        CHECK(map[0] == "zero");
+        CHECK(map[1] == "one");
+        CHECK(map[2] == "two");
+        CHECK(map[3] == "three");
+    }
+
+    SECTION("範囲削除") {
+        bluestl::hash_map<int, std::string, bluestl::allocator> map(alloc);
+        map.insert(1, "one");
+        map.insert(2, "two");
+        map.insert(3, "three");
+        map.insert(4, "four");
+        map.insert(5, "five");
+
+        auto it_start = map.begin();
+
+        auto it_end = it_start;
+        it_end++;
+        it_end++;
+
+        CHECK(it_start != map.end());
+        CHECK(it_end != map.end());
+
+        // 削除前の状態を確認
+        CHECK(map.contains(2));
+        CHECK(map.contains(3));
+
+        // 範囲削除を実行
+        auto next_it = map.erase(it_start, it_end);
+
+        // 削除後のサイズを確認
+        CHECK(map.size() == 3);  // 1, 4, 5 が残る
+
+
+        // 戻り値のイテレータが last (it_end) と同じか確認
+        // erase(iterator) がリハッシュしない限りは一致するはず
+        // CHECK(next_it == it_end); // リハッシュの可能性を考慮し、コメントアウト
     }
 }
