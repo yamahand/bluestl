@@ -1,677 +1,690 @@
-﻿#include <catch2/catch_test_macros.hpp>
+﻿// filepath: f:\dev\github\bluestl\tests\test_vector.cpp
 #include "bluestl/vector.h"
-#include "test_allocator.h"
-#include <string> // テスト用にstringを使用
-#include <compare> // std::compare_three_way_result
+#include <catch2/catch_test_macros.hpp>
+#include <string>
 
-// テスト用の簡単な構造体
-struct TestStruct {
-    int id;
-    std::string name;
-    static int construction_count;
-    static int destruction_count;
-    static int copy_construction_count;
-    static int move_construction_count;
-    static int copy_assignment_count;
-    static int move_assignment_count;
+// bluestl::vectorのテストケース
 
-    TestStruct(int i = 0, std::string n = "") : id(i), name(std::move(n)) { construction_count++; }
-    ~TestStruct() { destruction_count++; }
-    TestStruct(const TestStruct& other) : id(other.id), name(other.name) { copy_construction_count++; construction_count++; }
-    TestStruct(TestStruct&& other) noexcept : id(other.id), name(std::move(other.name)) { move_construction_count++; construction_count++; other.id = -1;} // ムーブ元を変更
-    TestStruct& operator=(const TestStruct& other) {
-        if (this != &other) {
-            id = other.id;
-            name = other.name;
-            copy_assignment_count++;
-        }
-        return *this;
+// ========== テスト用カスタムクラス ==========
+struct TestType {
+    int value;
+    bool* destroyed;
+
+    TestType() : value(0), destroyed(nullptr) {}
+    TestType(int v) : value(v), destroyed(nullptr) {}
+    TestType(int v, bool* d) : value(v), destroyed(d) {}
+
+    ~TestType() {
+        if (destroyed) *destroyed = true;
     }
-     TestStruct& operator=(TestStruct&& other) noexcept {
-        if (this != &other) {
-            id = other.id;
-            name = std::move(other.name);
-            move_assignment_count++;
-            other.id = -1; // ムーブ元を変更
-        }
+
+    TestType(const TestType& other) : value(other.value), destroyed(other.destroyed) {}
+    TestType& operator=(const TestType& other) {
+        value = other.value;
+        destroyed = other.destroyed;
         return *this;
     }
 
-    // 比較演算子
-    bool operator==(const TestStruct& rhs) const { return id == rhs.id && name == rhs.name; }
-    auto operator<=>(const TestStruct& rhs) const {
-        if (auto cmp = id <=> rhs.id; cmp != 0) return cmp;
-        return name <=> rhs.name;
+    TestType(TestType&& other) noexcept : value(other.value), destroyed(other.destroyed) {
+        other.destroyed = nullptr;
+    }
+    TestType& operator=(TestType&& other) noexcept {
+        value = other.value;
+        destroyed = other.destroyed;
+        other.destroyed = nullptr;
+        return *this;
     }
 
-
-    static void reset_counts() {
-        construction_count = 0;
-        destruction_count = 0;
-        copy_construction_count = 0;
-        move_construction_count = 0;
-        copy_assignment_count = 0;
-        move_assignment_count = 0;
+    bool operator==(const TestType& other) const {
+        return value == other.value;
     }
+
+    auto operator<=>(const TestType& other) const = default;
 };
 
-int TestStruct::construction_count = 0;
-int TestStruct::destruction_count = 0;
-int TestStruct::copy_construction_count = 0;
-int TestStruct::move_construction_count = 0;
-int TestStruct::copy_assignment_count = 0;
-int TestStruct::move_assignment_count = 0;
+TEST_CASE("bluestl::vector 基本動作", "[vector]") {
+    using bluestl::vector;
 
-
-TEST_CASE("vector の基本操作", "[vector]") {
-    TestAllocator<int> allocator_("test_vector_basic");
-    // アロケータ型を明示的に指定
-    bluestl::vector<int, TestAllocator<int>> vec(allocator_);
-    const auto& allocator = vec.get_allocator_ref();
-
-    SECTION("初期状態") {
-        REQUIRE(vec.empty());
-        REQUIRE(vec.size() == 0);
-        REQUIRE(vec.capacity() == 0);
-        REQUIRE(vec.data() == nullptr);
-        REQUIRE(allocator.get_allocated_bytes() == 0);
+    SECTION("デフォルトコンストラクタ") {
+        vector<int> v;
+        REQUIRE(v.empty());
+        REQUIRE(v.size() == 0);
+        REQUIRE(v.capacity() == 0);
     }
 
-    SECTION("要素の追加 (push_back)") {
-        vec.push_back(1);
-        vec.push_back(2);
-        vec.push_back(3);
-
-        REQUIRE_FALSE(vec.empty());
-        REQUIRE(vec.size() == 3);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 2);
-        REQUIRE(vec[2] == 3);
-        REQUIRE(vec.front() == 1);
-        REQUIRE(vec.back() == 3);
-        REQUIRE(vec.at(1) == 2);
-
-        // 容量の確認 (実装依存だが、0より大きいことは確実)
-        REQUIRE(vec.capacity() >= vec.size());
-        REQUIRE(vec.get_allocator_ref().get_allocated_bytes() > 0);
-        REQUIRE(vec.get_allocator_ref().get_allocation_count() > 0); // 再確保が発生する可能性がある
+    SECTION("サイズ指定コンストラクタ") {
+        vector<int> v(5);
+        REQUIRE(!v.empty());
+        REQUIRE(v.size() == 5);
+        REQUIRE(v.capacity() >= 5);
+        for (size_t i = 0; i < v.size(); ++i) {
+            REQUIRE(v[i] == 0);
+        }
     }
 
-     SECTION("要素の追加 (emplace_back)") {
-        TestStruct::reset_counts();
-        TestAllocator<TestStruct> tmp_allocator("emplace_back_alloc");
-        bluestl::vector<TestStruct, TestAllocator<TestStruct>> svec(tmp_allocator);
-        const auto& struct_allocator = svec.get_allocator_ref();
-
-        svec.emplace_back(1, "one");
-        svec.emplace_back(2, "two");
-
-        REQUIRE(svec.size() == 2);
-        REQUIRE(svec[0].id == 1);
-        REQUIRE(svec[0].name == "one");
-        REQUIRE(svec[1].id == 2);
-        REQUIRE(svec[1].name == "two");
-        // emplace_back は直接構築するのでコピー/ムーブ構築は発生しないはず (再確保時を除く)
-        // REQUIRE(TestStruct::copy_construction_count == 0); // 再確保でムーブが発生する可能性あり
-        // REQUIRE(TestStruct::move_construction_count <= svec.size()); // 再確保でムーブが発生する可能性あり
-        REQUIRE(TestStruct::construction_count >= 2); // 直接構築 + 再確保時のムーブ構築
-        REQUIRE(svec.get_allocator_ref().get_allocated_bytes() > 0);
+    SECTION("サイズと初期値指定コンストラクタ") {
+        vector<int> v(3, 42);
+        REQUIRE(v.size() == 3);
+        for (size_t i = 0; i < v.size(); ++i) {
+            REQUIRE(v[i] == 42);
+        }
     }
 
-
-    SECTION("要素の削除 (pop_back)") {
-        vec.push_back(1);
-        vec.push_back(2);
-        vec.push_back(3);
-        size_t initial_capacity = vec.capacity();
-
-        vec.pop_back();
-        REQUIRE(vec.size() == 2);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 2);
-        REQUIRE(vec.back() == 2);
-        // pop_backは容量を変更しない
-        REQUIRE(vec.capacity() == initial_capacity);
+    SECTION("イテレータ範囲コンストラクタ") {
+        int arr[] = {1, 2, 3, 4, 5};
+        vector<int> v(arr, arr + 5);
+        REQUIRE(v.size() == 5);
+        for (size_t i = 0; i < v.size(); ++i) {
+            REQUIRE(v[i] == arr[i]);
+        }
     }
 
-    SECTION("クリア操作 (clear)") {
-        vec.push_back(1);
-        vec.push_back(2);
-        size_t capacity_before_clear = vec.capacity();
-        size_t allocated_before_clear = vec.get_allocator_ref().get_allocated_bytes();
-        size_t deallocation_count_before_clear = allocator.get_deallocation_count(); // クリア前の解放回数を記録
-
-        vec.clear();
-        REQUIRE(vec.empty());
-        REQUIRE(vec.size() == 0);
-        // clearは容量を変更しない
-        REQUIRE(vec.capacity() == capacity_before_clear);
-        // clearはメモリを解放しない
-        REQUIRE(allocator.get_allocated_bytes() == allocated_before_clear);
-        REQUIRE(allocator.get_deallocation_count() == deallocation_count_before_clear); // clearでは解放されない
+    SECTION("コピーコンストラクタ") {
+        vector<int> v1 = {1, 2, 3};
+        vector<int> v2(v1);
+        REQUIRE(v2.size() == v1.size());
+        for (size_t i = 0; i < v1.size(); ++i) {
+            REQUIRE(v2[i] == v1[i]);
+        }
+        // v1を変更してもv2に影響がないことを確認
+        v1[0] = 100;
+        REQUIRE(v2[0] == 1);
     }
 
-    SECTION("容量確保 (reserve)") {
-        REQUIRE(vec.capacity() == 0);
-        vec.reserve(10);
-        REQUIRE(vec.capacity() >= 10);
-        REQUIRE(allocator.get_allocated_bytes() >= 10 * sizeof(int));
-        REQUIRE(allocator.get_allocation_count() == 1);
-
-        // 要素追加が正常に行われるか
-        vec.push_back(4);
-        vec.push_back(5);
-        REQUIRE(vec.size() == 2);
-        REQUIRE(vec[0] == 4);
-        REQUIRE(vec[1] == 5);
-        // reserve後なので再確保は発生しないはず
-        REQUIRE(allocator.get_allocation_count() == 1);
+    SECTION("ムーブコンストラクタ") {
+        vector<int> v1 = {1, 2, 3};
+        size_t original_capacity = v1.capacity();
+        vector<int> v2(std::move(v1));
+        REQUIRE(v2.size() == 3);
+        REQUIRE(v2[0] == 1);
+        REQUIRE(v2[1] == 2);
+        REQUIRE(v2[2] == 3);
+        // ムーブ元は空になる
+        REQUIRE(v1.empty());
+        REQUIRE(v1.capacity() == 0);
+        // ムーブ先は元の容量を引き継ぐ
+        REQUIRE(v2.capacity() == original_capacity);
     }
 
-     SECTION("容量縮小 (shrink_to_fit)") {
-        vec.reserve(20);
-        vec.push_back(1);
-        vec.push_back(2);
-        vec.push_back(3);
-        REQUIRE(vec.capacity() >= 20);
-        size_t alloc_count_before = allocator.get_allocation_count();
+    SECTION("イニシャライザリストコンストラクタ") {
+        vector<int> v = {5, 4, 3, 2, 1};
+        REQUIRE(v.size() == 5);
+        REQUIRE(v[0] == 5);
+        REQUIRE(v[1] == 4);
+        REQUIRE(v[2] == 3);
+        REQUIRE(v[3] == 2);
+        REQUIRE(v[4] == 1);
+    }
+}
 
-        vec.shrink_to_fit();
-        REQUIRE(vec.capacity() == 3);
-        REQUIRE(vec.size() == 3);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 2);
-        REQUIRE(vec[2] == 3);
-        REQUIRE(allocator.get_allocated_bytes() == 3 * sizeof(int));
-        // 再確保が発生する
-        REQUIRE(allocator.get_allocation_count() > alloc_count_before);
-        REQUIRE(allocator.get_deallocation_count() > 0);
+TEST_CASE("bluestl::vector 代入演算子", "[vector]") {
+    using bluestl::vector;
 
-        // サイズ0の場合
-        vec.clear();
-        vec.reserve(10);
-        REQUIRE(vec.capacity() >= 10);
-        vec.shrink_to_fit();
-        REQUIRE(vec.capacity() == 0);
-        REQUIRE(vec.size() == 0);
-        REQUIRE(vec.data() == nullptr);
-        // メモリが解放されているはず
-        // (ただし、他のテストの影響で0にならない可能性もあるため、差分で確認するのがより正確)
+    SECTION("コピー代入演算子") {
+        vector<int> v1 = {1, 2, 3};
+        vector<int> v2;
+        v2 = v1;
+        REQUIRE(v2.size() == v1.size());
+        for (size_t i = 0; i < v1.size(); ++i) {
+            REQUIRE(v2[i] == v1[i]);
+        }
+        // v1を変更してもv2に影響がないことを確認
+        v1[0] = 100;
+        REQUIRE(v2[0] == 1);
     }
 
+    SECTION("ムーブ代入演算子") {
+        vector<int> v1 = {1, 2, 3};
+        size_t original_capacity = v1.capacity();
+        vector<int> v2;
+        v2 = std::move(v1);
+        REQUIRE(v2.size() == 3);
+        REQUIRE(v2[0] == 1);
+        REQUIRE(v2[1] == 2);
+        REQUIRE(v2[2] == 3);
+        // ムーブ元は空になる
+        REQUIRE(v1.empty());
+        REQUIRE(v1.capacity() == 0);
+        // ムーブ先は元の容量を引き継ぐ
+        REQUIRE(v2.capacity() == original_capacity);
+    }
 
-    SECTION("イテレータ") {
-        vec.clear();
-        vec.push_back(10);
-        vec.push_back(20);
-        vec.push_back(30);
+    SECTION("イニシャライザリスト代入演算子") {
+        vector<int> v;
+        v = {10, 20, 30};
+        REQUIRE(v.size() == 3);
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[1] == 20);
+        REQUIRE(v[2] == 30);
+    }
+}
 
-        int sum = 0; // ループの外で宣言
-        for (auto it = vec.begin(); it != vec.end(); ++it) { // iterator -> auto
+TEST_CASE("bluestl::vector 要素アクセス", "[vector]") {
+    using bluestl::vector;
+    vector<int> v = {10, 20, 30, 40, 50};
+
+    SECTION("operator[]") {
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[2] == 30);
+        REQUIRE(v[4] == 50);
+
+        // 変更可能であることを確認
+        v[1] = 200;
+        REQUIRE(v[1] == 200);
+    }
+
+    SECTION("at()") {
+        REQUIRE(v.at(0) == 10);
+        REQUIRE(v.at(2) == 30);
+        REQUIRE(v.at(4) == 50);
+
+        // 変更可能であることを確認
+        v.at(3) = 400;
+        REQUIRE(v.at(3) == 400);
+    }
+
+    SECTION("front()とback()") {
+        REQUIRE(v.front() == 10);
+        REQUIRE(v.back() == 50);
+
+        // 変更可能であることを確認
+        v.front() = 100;
+        v.back() = 500;
+        REQUIRE(v.front() == 100);
+        REQUIRE(v.back() == 500);
+    }
+
+    SECTION("data()") {
+        int* data_ptr = v.data();
+        REQUIRE(data_ptr[0] == 10);
+        REQUIRE(data_ptr[4] == 50);
+
+        // 変更可能であることを確認
+        data_ptr[2] = 300;
+        REQUIRE(v[2] == 300);
+    }
+}
+
+TEST_CASE("bluestl::vector イテレータ", "[vector]") {
+    using bluestl::vector;
+    vector<int> v = {10, 20, 30, 40, 50};
+
+    SECTION("begin/end") {
+        auto it = v.begin();
+        REQUIRE(*it == 10);
+        ++it;
+        REQUIRE(*it == 20);
+        it += 2;
+        REQUIRE(*it == 40);
+
+        int sum = 0;
+        for (auto& x : v) {
+            sum += x;
+        }
+        REQUIRE(sum == 150);
+    }
+
+    SECTION("cbegin/cend") {
+        auto it = v.cbegin();
+        REQUIRE(*it == 10);
+        ++it;
+        REQUIRE(*it == 20);
+
+        int sum = 0;
+        for (auto it = v.cbegin(); it != v.cend(); ++it) {
             sum += *it;
         }
-        REQUIRE(sum == 60);
+        REQUIRE(sum == 150);
+    }
 
-        // 範囲for
-        sum = 0; // 再利用
-        for (int val : vec) {
-            sum += val;
+    SECTION("rbegin/rend") {
+        auto it = v.rbegin();
+        REQUIRE(*it == 50);
+        ++it;
+        REQUIRE(*it == 40);
+
+        int sum = 0;
+        for (auto it = v.rbegin(); it != v.rend(); ++it) {
+            sum += *it;
         }
-        REQUIRE(sum == 60);
+        REQUIRE(sum == 150);
     }
 
-    SECTION("constイテレータ") {
-        vec.clear();
-        vec.push_back(10);
-        vec.push_back(20);
-        vec.push_back(30);
+    SECTION("crbegin/crend") {
+        auto it = v.crbegin();
+        REQUIRE(*it == 50);
+        ++it;
+        REQUIRE(*it == 40);
 
-        const auto& cvec = vec;
-        int csum = 0; // ループの外で宣言
-        for (auto it = cvec.cbegin(); it != cvec.cend(); ++it) { // const_iterator -> auto
-            csum += *it;
+        int sum = 0;
+        for (auto it = v.crbegin(); it != v.crend(); ++it) {
+            sum += *it;
         }
-        REQUIRE(csum == 60);
+        REQUIRE(sum == 150);
+    }
+}
 
-        // 範囲for (const)
-        csum = 0; // 再利用
-        for (const int& val : cvec) {
-            csum += val;
-        }
-         REQUIRE(csum == 60);
+TEST_CASE("bluestl::vector 容量関連機能", "[vector]") {
+    using bluestl::vector;
+
+    SECTION("empty()") {
+        vector<int> v1;
+        REQUIRE(v1.empty());
+
+        vector<int> v2 = {1, 2, 3};
+        REQUIRE(!v2.empty());
+
+        v2.clear();
+        REQUIRE(v2.empty());
     }
 
-    SECTION("リバースイテレータ") {
-        vec.clear();
-        vec.push_back(10);
-        vec.push_back(20);
-        vec.push_back(30);
+    SECTION("size()") {
+        vector<int> v;
+        REQUIRE(v.size() == 0);
 
-        auto rit = vec.rbegin();
-        REQUIRE(*rit == 30);
-        ++rit;
-        REQUIRE(*rit == 20);
-        ++rit;
-        REQUIRE(*rit == 10);
-        ++rit;
-        REQUIRE(rit == vec.rend());
+        v.push_back(10);
+        REQUIRE(v.size() == 1);
+
+        v.push_back(20);
+        v.push_back(30);
+        REQUIRE(v.size() == 3);
+
+        v.pop_back();
+        REQUIRE(v.size() == 2);
+
+        v.clear();
+        REQUIRE(v.size() == 0);
     }
 
-    SECTION("constリバースイテレータ") {
-        vec.clear();
-        vec.push_back(10);
-        vec.push_back(20);
-        vec.push_back(30);
+    SECTION("capacity()とreserve()") {
+        vector<int> v;
+        REQUIRE(v.capacity() == 0);
 
-        const auto& cvec = vec;
-        auto crit = cvec.crbegin();
-        REQUIRE(*crit == 30);
-        ++crit;
-        REQUIRE(*crit == 20);
-        ++crit;
-        REQUIRE(*crit == 10);
-        ++crit;
-        REQUIRE(crit == cvec.crend());
+        v.reserve(10);
+        REQUIRE(v.capacity() >= 10);
+        REQUIRE(v.size() == 0);
+
+        size_t old_capacity = v.capacity();
+        v.reserve(5); // 小さい値では縮小しない
+        REQUIRE(v.capacity() == old_capacity);
+
+        v.push_back(1);
+        v.push_back(2);
+        REQUIRE(v.size() == 2);
+        REQUIRE(v.capacity() >= 10);
     }
 
-    SECTION("要素アクセス (front/back/at/operator[])") {
-        vec.clear();
-        REQUIRE(vec.empty());
+    SECTION("shrink_to_fit()") {
+        vector<int> v;
+        v.reserve(10);
+        REQUIRE(v.capacity() >= 10);
 
-        vec.push_back(100);
-        vec.push_back(200);
-        vec.push_back(300);
+        v.push_back(1);
+        v.push_back(2);
+        v.push_back(3);
+        REQUIRE(v.size() == 3);
 
-        REQUIRE_FALSE(vec.empty());
-        REQUIRE(vec.front() == 100);
-        REQUIRE(vec.back() == 300);
-        REQUIRE(vec.at(1) == 200);
-        REQUIRE(vec[1] == 200);
+        v.shrink_to_fit();
+        REQUIRE(v.capacity() == 3);
 
-        vec.at(1) = 250;
-        REQUIRE(vec.at(1) == 250);
-        REQUIRE(vec[1] == 250);
+        v.clear();
+        v.shrink_to_fit();
+        REQUIRE(v.capacity() == 0);
+    }
+}
 
-        const auto& cvec = vec;
-        REQUIRE(cvec.front() == 100);
-        REQUIRE(cvec.back() == 300);
-        REQUIRE(cvec.at(1) == 250);
-        REQUIRE(cvec[1] == 250);
+TEST_CASE("bluestl::vector データ追加・削除操作", "[vector]") {
+    using bluestl::vector;
+
+    SECTION("push_back()") {
+        vector<int> v;
+        v.push_back(10);
+        REQUIRE(v.size() == 1);
+        REQUIRE(v[0] == 10);
+
+        v.push_back(20);
+        REQUIRE(v.size() == 2);
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[1] == 20);
+
+        // ムーブでのpush_back
+        int value = 30;
+        v.push_back(std::move(value));
+        REQUIRE(v.size() == 3);
+        REQUIRE(v[2] == 30);
     }
 
-    SECTION("リサイズ (resize)") {
-        vec.clear();
-        vec.push_back(100);
-        vec.push_back(250);
-        size_t capacity_before = vec.capacity();
+    SECTION("emplace_back()") {
+        vector<std::string> v;
+        std::string result = v.emplace_back("hello");
+        REQUIRE(v.size() == 1);
+        REQUIRE(v[0] == "hello");
+        REQUIRE(result == "hello");
 
-        // 拡大 (デフォルト値)
-        vec.resize(5); // デフォルトコンストラクタが呼ばれる
-        REQUIRE(vec.size() == 5);
-        REQUIRE(vec[0] == 100);
-        REQUIRE(vec[1] == 250);
-        REQUIRE(vec[2] == 0); // intのデフォルト値
-        REQUIRE(vec[3] == 0);
-        REQUIRE(vec[4] == 0);
-        REQUIRE(vec.capacity() >= 5);
+        result = v.emplace_back(5, 'x');
+        REQUIRE(v.size() == 2);
+        REQUIRE(v[1] == "xxxxx");
+        REQUIRE(result == "xxxxx");
+    }
 
-        // 拡大 (指定値)
-        vec.resize(7, 42);
-        REQUIRE(vec.size() == 7);
-        REQUIRE(vec[5] == 42);
-        REQUIRE(vec[6] == 42);
+    SECTION("pop_back()") {
+        vector<int> v = {10, 20, 30};
+        v.pop_back();
+        REQUIRE(v.size() == 2);
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[1] == 20);
+
+        v.pop_back();
+        REQUIRE(v.size() == 1);
+        REQUIRE(v[0] == 10);
+
+        v.pop_back();
+        REQUIRE(v.empty());
+    }
+
+    SECTION("insert()") {
+        vector<int> v = {10, 20, 30};
+
+        // 単一要素のinsert
+        auto it = v.insert(v.begin() + 1, 15);
+        REQUIRE(v.size() == 4);
+        REQUIRE(*it == 15);
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[1] == 15);
+        REQUIRE(v[2] == 20);
+        REQUIRE(v[3] == 30);
+
+        // 複数要素のinsert
+        v.insert(v.begin(), 3, 5);
+        REQUIRE(v.size() == 7);
+        REQUIRE(v[0] == 5);
+        REQUIRE(v[1] == 5);
+        REQUIRE(v[2] == 5);
+        REQUIRE(v[3] == 10);
+
+        // 末尾へのinsert
+        v.insert(v.end(), 99);
+        REQUIRE(v.size() == 8);
+        REQUIRE(v[7] == 99);
+
+        // 範囲insert
+        int arr[] = {100, 200};
+        v.insert(v.begin() + 4, arr, arr + 2);
+        REQUIRE(v.size() == 10);
+        REQUIRE(v[4] == 100);
+        REQUIRE(v[5] == 200);
+    }
+
+    SECTION("emplace()") {
+        vector<std::string> v = {"hello", "world"};
+        auto it = v.emplace(v.begin() + 1, "beautiful");
+        REQUIRE(v.size() == 3);
+        REQUIRE(*it == "beautiful");
+        REQUIRE(v[0] == "hello");
+        REQUIRE(v[1] == "beautiful");
+        REQUIRE(v[2] == "world");
+
+        // 末尾へのemplace
+        it = v.emplace(v.end(), 3, '!');
+        REQUIRE(v.size() == 4);
+        REQUIRE(*it == "!!!");
+        REQUIRE(v[3] == "!!!");
+    }
+
+    SECTION("erase()") {
+        vector<int> v = {10, 20, 30, 40, 50};
+
+        // 単一要素のerase
+        auto it = v.erase(v.begin() + 1);
+        REQUIRE(v.size() == 4);
+        REQUIRE(*it == 30);
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[1] == 30);
+        REQUIRE(v[2] == 40);
+        REQUIRE(v[3] == 50);
+
+        // 範囲erase
+        it = v.erase(v.begin() + 1, v.begin() + 3);
+        REQUIRE(v.size() == 2);
+        REQUIRE(*it == 50);
+        REQUIRE(v[0] == 10);
+        REQUIRE(v[1] == 50);
+
+        // 最初の要素をerase
+        v.erase(v.begin());
+        REQUIRE(v.size() == 1);
+        REQUIRE(v[0] == 50);
+
+        // 最後の要素をerase
+        v.erase(v.begin());
+        REQUIRE(v.empty());
+    }
+
+    SECTION("clear()") {
+        vector<int> v = {1, 2, 3, 4, 5};
+        REQUIRE(v.size() == 5);
+
+        v.clear();
+        REQUIRE(v.empty());
+        REQUIRE(v.size() == 0);
+        // capacityは変わらない
+        REQUIRE(v.capacity() > 0);
+    }
+}
+
+TEST_CASE("bluestl::vector resize()とassign()", "[vector]") {
+    using bluestl::vector;
+
+    SECTION("resize()") {
+        vector<int> v = {1, 2, 3};
+
+        // 拡大
+        v.resize(5);
+        REQUIRE(v.size() == 5);
+        REQUIRE(v[0] == 1);
+        REQUIRE(v[1] == 2);
+        REQUIRE(v[2] == 3);
+        REQUIRE(v[3] == 0); // デフォルト値で初期化
+        REQUIRE(v[4] == 0);
+
+        // 指定値で拡大
+        v.resize(8, 42);
+        REQUIRE(v.size() == 8);
+        REQUIRE(v[5] == 42);
+        REQUIRE(v[6] == 42);
+        REQUIRE(v[7] == 42);
 
         // 縮小
-        vec.resize(2);
-        REQUIRE(vec.size() == 2);
-        REQUIRE(vec.back() == 250);
-        // resizeは容量を変更しない場合がある
-        REQUIRE(vec.capacity() >= 7);
-
-        // 0にリサイズ
-        vec.resize(0);
-        REQUIRE(vec.empty());
-        REQUIRE(vec.size() == 0);
+        v.resize(2);
+        REQUIRE(v.size() == 2);
+        REQUIRE(v[0] == 1);
+        REQUIRE(v[1] == 2);
     }
 
-    SECTION("スワップ (swap)") {
-        vec.clear();
-        vec.push_back(100);
-        vec.push_back(250);
-        size_t vec_cap = vec.capacity();
-        size_t vec_alloc_count = allocator.get_allocation_count();
+    SECTION("assign()") {
+        vector<int> v = {1, 2, 3};
 
-        TestAllocator<int> tmp_allocator2("test_vector_swap");
-        bluestl::vector<int, TestAllocator<int>> vec2(tmp_allocator2);
-        const auto& allocator2 = vec2.get_allocator_ref();
-        vec2.push_back(999);
-        size_t vec2_cap = vec2.capacity();
-        size_t vec2_alloc_count = allocator2.get_allocation_count();
+        // カウント+値でassign
+        v.assign(4, 10);
+        REQUIRE(v.size() == 4);
+        for (int i = 0; i < 4; ++i) {
+            REQUIRE(v[i] == 10);
+        }
 
+        // イテレータ範囲でassign
+        int arr[] = {5, 6, 7, 8, 9};
+        v.assign(arr, arr + 5);
+        REQUIRE(v.size() == 5);
+        for (int i = 0; i < 5; ++i) {
+            REQUIRE(v[i] == arr[i]);
+        }
 
-        // アロケータが異なり、propagate_on_container_swap = true なのでアロケータも交換される
-        vec.swap(vec2);
-
-        REQUIRE(vec.size() == 1);
-        REQUIRE(vec.front() == 999);
-        REQUIRE(vec.capacity() == vec2_cap);
-        REQUIRE(vec.get_allocator().get_name() == std::string("test_vector_swap"));
-        // swapはアロケータも交換されるので参照を持っていても変わる
-        REQUIRE(allocator.get_allocation_count() == vec2_alloc_count);
-        REQUIRE(allocator2.get_allocation_count() == vec_alloc_count);
-
-
-        REQUIRE(vec2.size() == 2);
-        REQUIRE(vec2.front() == 100);
-        REQUIRE(vec2.back() == 250);
-        REQUIRE(vec2.capacity() == vec_cap);
-        REQUIRE(vec2.get_allocator().get_name() == std::string("test_vector_basic"));
+        // 初期化リストでassign
+        v.assign({100, 200, 300});
+        REQUIRE(v.size() == 3);
+        REQUIRE(v[0] == 100);
+        REQUIRE(v[1] == 200);
+        REQUIRE(v[2] == 300);
     }
+}
 
-    SECTION("代入 (assign)") {
-        // assign(count, value)
-        vec.assign(3, 7);
-        REQUIRE(vec.size() == 3);
-        REQUIRE(vec[0] == 7);
-        REQUIRE(vec[1] == 7);
-        REQUIRE(vec[2] == 7);
-        REQUIRE(vec.capacity() >= 3);
+TEST_CASE("bluestl::vector swap()と比較演算子", "[vector]") {
+    using bluestl::vector;
 
-        // assign(iterator, iterator)
-        int arr[] = {1, 2, 3, 4, 5};
-        vec.assign(arr, arr + 5);
-        REQUIRE(vec.size() == 5);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[4] == 5);
+    SECTION("swap()") {
+        vector<int> v1 = {1, 2, 3};
+        vector<int> v2 = {4, 5, 6, 7};
 
-        // assign(initializer_list)
-        vec.assign({10, 20});
-        REQUIRE(vec.size() == 2);
-        REQUIRE(vec[0] == 10);
-        REQUIRE(vec[1] == 20);
-    }
+        size_t v1_size = v1.size();
+        size_t v2_size = v2.size();
+        size_t v1_capacity = v1.capacity();
+        size_t v2_capacity = v2.capacity();
 
-    SECTION("挿入 (insert)") {
-        vec.assign({10, 20, 30});
+        v1.swap(v2);
 
-        // insert(pos, value)
-        auto it = vec.insert(vec.begin() + 1, 15); // {10, 15, 20, 30} // auto を使用
-        REQUIRE(*it == 15);
-        REQUIRE(vec.size() == 4);
-        REQUIRE(vec[0] == 10);
-        REQUIRE(vec[1] == 15);
-        REQUIRE(vec[2] == 20);
-        REQUIRE(vec[3] == 30);
+        REQUIRE(v1.size() == v2_size);
+        REQUIRE(v2.size() == v1_size);
+        REQUIRE(v1.capacity() == v2_capacity);
+        REQUIRE(v2.capacity() == v1_capacity);
 
-        // insert(pos, count, value)
-        it = vec.insert(vec.end(), 2, 99); // {10, 15, 20, 30, 99, 99} // auto を使用
-        REQUIRE(*it == 99);
-        REQUIRE(vec.size() == 6);
-        REQUIRE(vec[4] == 99);
-        REQUIRE(vec[5] == 99);
+        REQUIRE(v1[0] == 4);
+        REQUIRE(v1[3] == 7);
+        REQUIRE(v2[0] == 1);
+        REQUIRE(v2[2] == 3);
 
-        // insert(pos, first, last)
-        int arr[] = {1, 2};
-        it = vec.insert(vec.begin(), arr, arr + 2); // {1, 2, 10, 15, 20, 30, 99, 99} // auto を使用
-        REQUIRE(*it == 1);
-        REQUIRE(vec.size() == 8);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 2);
-        REQUIRE(vec[2] == 10);
-    }
-
-     SECTION("直接構築挿入 (emplace)") {
-        TestStruct::reset_counts();
-        TestAllocator<TestStruct> struct_allocator("emplace_alloc");
-        bluestl::vector<TestStruct, TestAllocator<TestStruct>> svec(struct_allocator);
-        svec.assign({ {1, "one"}, {3, "three"} });
-        REQUIRE(TestStruct::construction_count > 0); // assignでの構築
-        TestStruct::reset_counts();
-
-        auto it = svec.emplace(svec.begin() + 1, 2, "two"); // {one, two, three} // auto を使用
-
-        REQUIRE(it->id == 2);
-        REQUIRE(it->name == "two");
-        REQUIRE(svec.size() == 3);
-        REQUIRE(svec[0].id == 1);
-        REQUIRE(svec[1].id == 2);
-        REQUIRE(svec[2].id == 3);
-        // emplace は直接構築 + 後ろの要素のムーブが発生するはず
-        REQUIRE(TestStruct::construction_count >= 1); // emplaceでの直接構築 + ムーブ構築
-        REQUIRE(TestStruct::move_construction_count + TestStruct::move_assignment_count > 0); // 要素移動
-        REQUIRE(TestStruct::copy_construction_count == 0);
-        REQUIRE(TestStruct::copy_assignment_count == 0);
-    }
-
-
-    SECTION("削除 (erase)") {
-        vec.assign({1, 2, 3, 4, 5});
-
-        // erase(pos)
-        auto it = vec.erase(vec.begin() + 1); // {1, 3, 4, 5} // auto を使用
-        REQUIRE(*it == 3);
-        REQUIRE(vec.size() == 4);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 3);
-        REQUIRE(vec[2] == 4);
-        REQUIRE(vec[3] == 5);
-
-        // erase(first, last)
-        it = vec.erase(vec.begin() + 1, vec.begin() + 3); // {1, 5} // auto を使用
-        REQUIRE(*it == 5);
-        REQUIRE(vec.size() == 2);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 5);
-
-        // 末尾を削除
-        it = vec.erase(vec.end() - 1); // {1} // auto を使用
-        REQUIRE(it == vec.end());
-        REQUIRE(vec.size() == 1);
-        REQUIRE(vec[0] == 1);
-
-         // 全て削除
-        it = vec.erase(vec.begin(), vec.end()); // auto を使用
-        REQUIRE(it == vec.end());
-        REQUIRE(vec.empty());
+        // 非メンバ関数版swap
+        swap(v1, v2);
+        REQUIRE(v1[0] == 1);
+        REQUIRE(v2[0] == 4);
     }
 
     SECTION("比較演算子") {
-        bluestl::vector<int, TestAllocator<int>> vec1(allocator);
-        bluestl::vector<int, TestAllocator<int>> vec2(allocator);
-        bluestl::vector<int, TestAllocator<int>> vec3(allocator);
+        vector<int> v1 = {1, 2, 3};
+        vector<int> v2 = {1, 2, 3};
+        vector<int> v3 = {1, 2, 4};
+        vector<int> v4 = {1, 2, 3, 4};
 
-        vec1.assign({1, 2, 3});
-        vec2.assign({1, 2, 3});
-        vec3.assign({1, 2, 4});
+        REQUIRE(v1 == v2);
+        REQUIRE(v1 != v3);
+        REQUIRE(v1 != v4);
 
-        REQUIRE(vec1 == vec2);
-        REQUIRE_FALSE(vec1 == vec3);
-        REQUIRE(vec1 != vec3);
+        REQUIRE(v1 < v3);
+        REQUIRE(v1 < v4);
+        REQUIRE(v3 > v1);
 
-        REQUIRE((vec1 <=> vec2) == std::strong_ordering::equal);
-        REQUIRE((vec1 <=> vec3) == std::strong_ordering::less);
-        REQUIRE((vec3 <=> vec1) == std::strong_ordering::greater);
+        REQUIRE(v1 <= v2);
+        REQUIRE(v1 <= v3);
+        REQUIRE(v2 >= v1);
 
-        vec2.push_back(4); // {1, 2, 3, 4}
-        REQUIRE(vec1 != vec2);
-        REQUIRE((vec1 <=> vec2) == std::strong_ordering::less); // 長さが違う
+        // 比較演算子の順序関係
+        REQUIRE((v1 <=> v2) == 0);
+        REQUIRE((v1 <=> v3) < 0);
+        REQUIRE((v3 <=> v1) > 0);
+        REQUIRE((v1 <=> v4) < 0);
     }
-
-    SECTION("コンストラクタ") {
-        // デフォルトコンストラクタ
-        bluestl::vector<int, TestAllocator<int>> v_def(allocator);
-        REQUIRE(v_def.empty());
-
-        // アロケータのみ
-        bluestl::vector<int, TestAllocator<int>> v_alloc(allocator);
-        REQUIRE(v_alloc.empty());
-
-        // count
-        bluestl::vector<int, TestAllocator<int>> v_count(5, allocator);
-        REQUIRE(v_count.size() == 5);
-        REQUIRE(v_count[0] == 0);
-
-        // count + value
-        bluestl::vector<int, TestAllocator<int>> v_count_val(3, 99, allocator);
-        REQUIRE(v_count_val.size() == 3);
-        REQUIRE(v_count_val[0] == 99);
-        REQUIRE(v_count_val[1] == 99);
-        REQUIRE(v_count_val[2] == 99);
-
-        // iterator range
-        int arr[] = {5, 6, 7};
-        bluestl::vector<int, TestAllocator<int>> v_range(arr, arr + 3, allocator);
-        REQUIRE(v_range.size() == 3);
-        REQUIRE(v_range[0] == 5);
-        REQUIRE(v_range[2] == 7);
-
-        // copy constructor (アロケータはselectされる)
-        TestAllocator<int> alloc_copy("copy_alloc");
-        bluestl::vector<int, TestAllocator<int>> v_copy_src(3, 1, alloc_copy);
-        bluestl::vector<int, TestAllocator<int>> v_copy_dst(v_copy_src);
-        REQUIRE(v_copy_dst.size() == 3);
-        REQUIRE(v_copy_dst[0] == 1);
-        // select_on_container_copy_construction のデフォルトはコピー元を返す
-        REQUIRE(v_copy_dst.get_allocator() == v_copy_src.get_allocator());
-
-        // move constructor (アロケータもムーブされる)
-        bluestl::vector<int, TestAllocator<int>> v_move_src(2, 2, allocator);
-        size_t src_cap = v_move_src.capacity();
-        auto src_data = v_move_src.data(); // pointer -> auto に修正
-        bluestl::vector<int, TestAllocator<int>> v_move_dst(std::move(v_move_src));
-        REQUIRE(v_move_dst.size() == 2);
-        REQUIRE(v_move_dst[0] == 2);
-        REQUIRE(v_move_dst.capacity() == src_cap);
-        REQUIRE(v_move_dst.data() == src_data);
-        REQUIRE(v_move_dst.get_allocator() == allocator); // ムーブされたアロケータ
-        // ムーブ元は空になる
-        REQUIRE(v_move_src.empty());
-        REQUIRE(v_move_src.capacity() == 0);
-        REQUIRE(v_move_src.data() == nullptr);
-
-        // initializer_list
-        bluestl::vector<int, TestAllocator<int>> v_init({8, 9}, allocator);
-        REQUIRE(v_init.size() == 2);
-        REQUIRE(v_init[0] == 8);
-        REQUIRE(v_init[1] == 9);
-    }
-
-     SECTION("代入演算子") {
-        TestAllocator<int> alloc1("assign_alloc1");
-        TestAllocator<int> alloc2("assign_alloc2");
-        bluestl::vector<int, TestAllocator<int>> v1({1, 2}, alloc1);
-        bluestl::vector<int, TestAllocator<int>> v2({3, 4, 5}, alloc2);
-
-        // コピー代入 (propagate = true なのでアロケータもコピーされる)
-        v1 = v2;
-        REQUIRE(v1.size() == 3);
-        REQUIRE(v1[0] == 3);
-        REQUIRE(v1.get_allocator() == alloc2); // アロケータがコピーされた
-
-        // ムーブ代入 (propagate = true なのでアロケータもムーブされる)
-        bluestl::vector<int, TestAllocator<int>> v3({6}, alloc1);
-        auto v2_data = v2.data(); // pointer -> auto
-        size_t v2_cap = v2.capacity();
-        v3 = std::move(v2);
-        REQUIRE(v3.size() == 3);
-        REQUIRE(v3[0] == 3);
-        REQUIRE(v3.get_allocator() == alloc2); // アロケータがムーブされた
-        REQUIRE(v3.data() == v2_data);
-        REQUIRE(v3.capacity() == v2_cap);
-        REQUIRE(v2.empty()); // ムーブ元は空
-        REQUIRE(v2.data() == nullptr);
-
-        // initializer_list 代入
-        v1 = {7, 8, 9, 10};
-        REQUIRE(v1.size() == 4);
-        REQUIRE(v1[0] == 7);
-        REQUIRE(v1[3] == 10);
-    }
-
 }
 
-// アロケータ伝播フラグがfalseの場合のテスト
-struct NoPropagateAllocatorTag {}; // タグ
+TEST_CASE("bluestl::vector 要素のデストラクタ呼び出し", "[vector]") {
+    using bluestl::vector;
 
-template <typename T>
-class TestAllocatorNoPropagate : public TestAllocator<T> {
-public:
-     using propagate_on_container_copy_assignment = std::false_type;
-     using propagate_on_container_move_assignment = std::false_type;
-     using propagate_on_container_swap = std::false_type;
-     // is_always_equal は false のまま
-
-     template <typename U>
-     struct rebind {
-         using other = TestAllocatorNoPropagate<U>;
-     };
-
-     explicit TestAllocatorNoPropagate(const char* name = "TestAllocatorNoPropagate") noexcept
-        : TestAllocator<T>(name) {}
-
-     // 他のコンストラクタ、代入演算子も基底クラスを呼び出すように実装が必要だが、テスト目的なので省略
-};
-
-
-TEST_CASE("vector アロケータ伝播なし", "[vector][allocator]") {
-    TestAllocatorNoPropagate<int> tmp_alloc1("no_prop_alloc1");
-    TestAllocatorNoPropagate<int> tmp_alloc2("no_prop_alloc2tmp_");
-
-    bluestl::vector<int, TestAllocatorNoPropagate<int>> vec1({1, 2}, tmp_alloc1);
-    bluestl::vector<int, TestAllocatorNoPropagate<int>> vec2({3, 4, 5}, tmp_alloc2);
-
-    const auto& alloc1 = vec1.get_allocator_ref();
-    const auto& alloc2 = vec1.get_allocator_ref();
-
-    SECTION("コピー代入 (propagate = false)") {
-        vec1 = vec2; // 要素はコピーされるが、アロケータはそのまま
-        REQUIRE(vec1.size() == 3);
-        REQUIRE(vec1[0] == 3);
-        REQUIRE(vec1.get_allocator() == alloc1); // アロケータは変わらない
-        // alloc1 で再確保が発生するはず
-        REQUIRE(alloc1.get_allocation_count() > 1); // 初期確保 + 再確保
+    SECTION("clear()で要素のデストラクタが呼ばれる") {
+        bool destroyed = false;
+        {
+            vector<TestType> v;
+            v.emplace_back(42, &destroyed);
+            REQUIRE(!destroyed);
+            v.clear();
+            REQUIRE(destroyed);
+        }
     }
 
-    SECTION("ムーブ代入 (propagate = false)") {
-        bluestl::vector<int, TestAllocatorNoPropagate<int>> vec3({6}, alloc1);
-
-        // アロケータが異なる場合、要素ごとのムーブが発生
-        vec3 = std::move(vec2);
-        REQUIRE(vec3.size() == 3);
-        REQUIRE(vec3[0] == 3);
-        REQUIRE(vec3.get_allocator_ref() == alloc1); // アロケータは変わらない
-        REQUIRE(vec2.empty()); // ムーブ元は常に空になる
-        // alloc1 で再確保が発生するはず
-        REQUIRE(alloc1.get_allocation_count() > 1);
-
-        // アロケータが同じ場合、リソースをスチール
-        bluestl::vector<int, TestAllocatorNoPropagate<int>> vec4({7, 8}, alloc1);
-        auto vec4_data = vec4.data(); // pointer -> auto
-        size_t vec4_cap = vec4.capacity();
-        vec3 = std::move(vec4);
-        REQUIRE(vec3.size() == 2);
-        REQUIRE(vec3[0] == 7);
-        REQUIRE(vec3.get_allocator() == alloc1);
-        REQUIRE(vec3.data() == vec4_data); // リソースが移動
-        REQUIRE(vec3.capacity() == vec4_cap);
-        REQUIRE(vec4.empty());
-        REQUIRE(vec4.data() == nullptr);
+    SECTION("ベクタのデストラクタで全要素のデストラクタが呼ばれる") {
+        bool destroyed1 = false;
+        bool destroyed2 = false;
+        bool destroyed3 = false;
+        {
+            vector<TestType> v;
+            v.emplace_back(1, &destroyed1);
+            v.emplace_back(2, &destroyed2);
+            v.emplace_back(3, &destroyed3);
+            REQUIRE(!destroyed1);
+            REQUIRE(!destroyed2);
+            REQUIRE(!destroyed3);
+        } // ここでvのデストラクタが呼ばれる
+        REQUIRE(destroyed1);
+        REQUIRE(destroyed2);
+        REQUIRE(destroyed3);
     }
 
-     SECTION("swap (propagate = false)") {
-         // アロケータが異なる場合は未定義動作 (Bluestlではアサート)
-         // REQUIRE_THROWS(vec1.swap(vec2)); // アサートなのでテスト不可
+    SECTION("erase()で指定要素のデストラクタが呼ばれる") {
+        bool destroyed = false;
+        vector<TestType> v;
+        v.emplace_back(1);
+        v.emplace_back(2, &destroyed);
+        v.emplace_back(3);
 
-         // アロケータが同じ場合
-         bluestl::vector<int, TestAllocatorNoPropagate<int>> vec3({7, 8}, alloc1);
-         auto vec1_data = vec1.data(); size_t vec1_cap = vec1.capacity(); size_t vec1_size = vec1.size(); // pointer -> auto
-         auto vec3_data = vec3.data(); size_t vec3_cap = vec3.capacity(); size_t vec3_size = vec3.size(); // pointer -> auto
+        REQUIRE(!destroyed);
+        v.erase(v.begin() + 1);
+        REQUIRE(destroyed);
+        REQUIRE(v.size() == 2);
+        REQUIRE(v[0].value == 1);
+        REQUIRE(v[1].value == 3);
+    }
+}
 
-         vec1.swap(vec3);
+TEST_CASE("bluestl::vector 容量自動拡張", "[vector]") {
+    using bluestl::vector;
 
-         REQUIRE(vec1.get_allocator() == alloc1);
-         REQUIRE(vec3.get_allocator() == alloc1);
-         REQUIRE(vec1.data() == vec3_data); REQUIRE(vec1.capacity() == vec3_cap); REQUIRE(vec1.size() == vec3_size);
-         REQUIRE(vec3.data() == vec1_data); REQUIRE(vec3.capacity() == vec1_cap); REQUIRE(vec3.size() == vec1_size);
-     }
+    SECTION("push_backでの容量自動拡張") {
+        vector<int> v;
+        REQUIRE(v.capacity() == 0);
+
+        v.push_back(1);
+        size_t cap1 = v.capacity();
+        REQUIRE(cap1 > 0);
+
+        // 容量一杯まで追加
+        for (size_t i = 1; i < cap1; ++i) {
+            v.push_back(static_cast<int>(i + 1));
+        }
+        REQUIRE(v.size() == cap1);
+        REQUIRE(v.capacity() == cap1);
+
+        // 容量を超える要素を追加
+        v.push_back(100);
+        REQUIRE(v.size() == cap1 + 1);
+        REQUIRE(v.capacity() > cap1);
+    }
+
+    SECTION("insert()での容量自動拡張") {
+        vector<int> v;
+        v.reserve(4);
+        v = {1, 2, 3, 4};
+
+        size_t old_cap = v.capacity();
+        // 容量を超えるinsert
+        v.insert(v.begin(), 5, 0);
+        REQUIRE(v.size() == 9);
+        REQUIRE(v.capacity() > old_cap);
+
+        for (size_t i = 0; i < 5; ++i) {
+            REQUIRE(v[i] == 0);
+        }
+        for (size_t i = 5; i < 9; ++i) {
+            REQUIRE(v[i] == static_cast<int>(i - 4));
+        }
+    }
+}
+
+TEST_CASE("bluestl::vector アロケータ", "[vector][allocator]") {
+    using bluestl::vector;
+    using bluestl::allocator;
+
+    SECTION("get_allocator()") {
+        vector<int> v;
+        allocator<int> a = v.get_allocator();
+
+        vector<int, allocator<int>> v2(a);
+        REQUIRE(v2.get_allocator() == a);
+    }
 }
