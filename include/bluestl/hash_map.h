@@ -204,7 +204,7 @@ public:
             if (!container_) return;
 
             while (index_ < container_->capacity_) {
-                if (container_->buckets_[index_].is_used() && 
+                if (container_->buckets_[index_].is_used() &&
                     !container_->buckets_[index_].is_deleted()) {
                     break;
                 }
@@ -701,9 +701,7 @@ public:
         }
         BLUESTL_ASSERT(false && "Hash map try_emplace failed");
         return { end(), false };
-    }
-
-    /**
+    }    /**
      * @brief 指定されたキーに対応する要素を削除します。
      * @param key 削除する要素のキー。
      * @return 要素が削除された場合は true、キーが見つからなかった場合は false。
@@ -712,16 +710,23 @@ public:
         size_type idx = find_index(key);
         if (idx == npos) return false;
 
+        // 要素を破棄してトゥームストーンとしてマーク
+        buckets_[idx].kv.~pair<Key, T>();
         buckets_[idx].set_deleted(true);
+        buckets_[idx].set_used(false);
         --size_;
         ++deleted_count_;
 
-        if (deleted_count_ > size_) rehash(capacity_);
+        // 削除された要素が多い場合、またはロードファクターが低い場合にリハッシュを実行
+        constexpr double max_deleted_ratio = 0.25; // 削除された要素が25%を超えた場合
+        if (capacity_ > 0 &&
+            (deleted_count_ > capacity_ * max_deleted_ratio ||
+             deleted_count_ > size_)) {
+            rehash(calculate_optimal_capacity());
+        }
 
         return true;
-    }
-
-    /**
+    }    /**
      * @brief 指定されたイテレータが指す要素を削除します。
      * @param pos 削除する要素を指すイテレータ。end() であってはなりません。
      * @return 削除された要素の次の要素を指すイテレータ。
@@ -732,14 +737,38 @@ public:
         if (pos == end()) return end();
 
         size_type idx = pos.get_index();
+
+        // 次のイテレータを削除前に計算
         iterator next_it(this, idx);
         ++next_it;
 
         if (idx < capacity_ && buckets_[idx].is_used() && !buckets_[idx].is_deleted()) {
+            // 要素を破棄してトゥームストーンとしてマーク
+            buckets_[idx].kv.~pair<Key, T>();
             buckets_[idx].set_deleted(true);
+            buckets_[idx].set_used(false);
             --size_;
             ++deleted_count_;
-            if (deleted_count_ > size_) rehash(capacity_);
+
+            // 削除された要素が多い場合、またはロードファクターが低い場合にリハッシュを実行
+            constexpr double max_deleted_ratio = 0.25; // 削除された要素が25%を超えた場合
+            if (capacity_ > 0 &&
+                (deleted_count_ > capacity_ * max_deleted_ratio ||
+                 deleted_count_ > size_)) {
+                // リハッシュ後にイテレータを再構築
+                size_type old_next_idx = next_it.get_index();
+                rehash(calculate_optimal_capacity());
+
+                // リハッシュ後の適切な次のイテレータを見つける
+                if (old_next_idx >= capacity_) {
+                    return end();
+                } else {
+                    next_it = iterator(this, old_next_idx);
+                    if (!buckets_[old_next_idx].is_used() || buckets_[old_next_idx].is_deleted()) {
+                        ++next_it; // 次の有効な要素に進む
+                    }
+                }
+            }
         }
 
         return next_it;
@@ -928,14 +957,32 @@ private:
      */
     bool should_rehash() const noexcept {
         return (size_ + 1 + deleted_count_) > static_cast<size_type>(capacity_ * max_load_factor);
-    }
-
-    /**
+    }    /**
      * @brief 再ハッシュ時の新しい容量を計算します。
      * @return 新しい容量。
      */
     size_type calculate_new_capacity() const noexcept {
         return capacity_ > 0 ? capacity_ * 2 : initial_capacity;
+    }
+
+    /**
+     * @brief 現在の要素数に基づいて最適な容量を計算します。
+     * トゥームストーンを考慮せず、実際の要素数のみを基準にします。
+     * @return 最適な容量。
+     */
+    size_type calculate_optimal_capacity() const noexcept {
+        // 目標ロードファクターを0.75として、必要な最小容量を計算
+        constexpr double target_load_factor = 0.75;
+        size_type min_capacity = static_cast<size_type>(size_ / target_load_factor) + 1;
+
+        // 2の冪に最も近い値を選択（効率的なハッシュのため）
+        size_type optimal_capacity = initial_capacity;
+        while (optimal_capacity < min_capacity) {
+            optimal_capacity *= 2;
+        }
+
+        // 現在の容量よりも小さくならないようにする（縮小を避ける）
+        return optimal_capacity > capacity_ ? optimal_capacity : capacity_;
     }
 
     /**
@@ -1012,11 +1059,11 @@ private:
 
         while (probe_count < capacity_) {
             size_type idx = probe_next(hash_val, probe_count);
-            
+
             if (!buckets_[idx].is_used()) {
                 return npos;
             }
-            
+
             if (!buckets_[idx].is_deleted() && buckets_[idx].kv.first == key) {
                 return idx;
             }

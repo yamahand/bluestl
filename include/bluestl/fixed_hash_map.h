@@ -480,9 +480,7 @@ class fixed_hash_map {
             }
         }
         return { end(), false };
-    }
-
-    /**
+    }    /**
      * @brief 指定したイテレータ位置の要素を削除します。
      * @param pos 削除する要素を指すイテレータ
      * @return 削除した次の要素を指すイテレータ
@@ -493,8 +491,10 @@ class fixed_hash_map {
         size_type idx = pos.idx_;
         buckets_[idx].deleted = true;
         --size_;
-        ++pos;
-        return pos;
+
+        // 削除後、次の有効な要素を探す
+        iterator next_it(this, idx + 1);
+        return next_it;
     }
 
     /**

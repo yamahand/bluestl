@@ -6,6 +6,7 @@
 #include <concepts>
 #include <iterator>
 #include "assert_handler.h"
+#include "log_macros.h"
 
 namespace bluestl {
 
@@ -103,14 +104,20 @@ class fixed_vector {
     }
     [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept {
         return rend();
-    }
-
-    [[nodiscard]] constexpr reference at(size_type pos) noexcept {
-        BLUESTL_ASSERT(pos < size_);
+    }    [[nodiscard]] constexpr reference at(size_type pos) noexcept {
+        if (pos >= size_) {
+            BLUESTL_LOG_ERROR("fixed_vector::at() - インデックス範囲外アクセス: pos={}, size={}, capacity={}",
+                             pos, size_, Capacity);
+            BLUESTL_ASSERT(false && "fixed_vector::at() - インデックス範囲外");
+        }
         return data()[pos];
     }
     [[nodiscard]] constexpr const_reference at(size_type pos) const noexcept {
-        BLUESTL_ASSERT(pos < size_);
+        if (pos >= size_) {
+            BLUESTL_LOG_ERROR("fixed_vector::at() const - インデックス範囲外アクセス: pos={}, size={}, capacity={}",
+                             pos, size_, Capacity);
+            BLUESTL_ASSERT(false && "fixed_vector::at() const - インデックス範囲外");
+        }
         return data()[pos];
     }
     // operator[]
@@ -119,22 +126,33 @@ class fixed_vector {
     }
     [[nodiscard]] constexpr const_reference operator[](size_type pos) const noexcept {
         return data()[pos];
-    }
-    // front/back/empty
+    }    // front/back/empty
     [[nodiscard]] constexpr reference front() noexcept {
-        BLUESTL_ASSERT(size_ > 0);
+        if (size_ == 0) {
+            BLUESTL_LOG_ERROR("fixed_vector::front() - 空のベクターに対するアクセス");
+            BLUESTL_ASSERT(false && "fixed_vector::front() - 空のベクター");
+        }
         return data()[0];
     }
     [[nodiscard]] constexpr const_reference front() const noexcept {
-        BLUESTL_ASSERT(size_ > 0);
+        if (size_ == 0) {
+            BLUESTL_LOG_ERROR("fixed_vector::front() const - 空のベクターに対するアクセス");
+            BLUESTL_ASSERT(false && "fixed_vector::front() const - 空のベクター");
+        }
         return data()[0];
     }
     [[nodiscard]] constexpr reference back() noexcept {
-        BLUESTL_ASSERT(size_ > 0);
+        if (size_ == 0) {
+            BLUESTL_LOG_ERROR("fixed_vector::back() - 空のベクターに対するアクセス");
+            BLUESTL_ASSERT(false && "fixed_vector::back() - 空のベクター");
+        }
         return data()[size_ - 1];
     }
     [[nodiscard]] constexpr const_reference back() const noexcept {
-        BLUESTL_ASSERT(size_ > 0);
+        if (size_ == 0) {
+            BLUESTL_LOG_ERROR("fixed_vector::back() const - 空のベクターに対するアクセス");
+            BLUESTL_ASSERT(false && "fixed_vector::back() const - 空のベクター");
+        }
         return data()[size_ - 1];
     }
     [[nodiscard]] constexpr bool empty() const noexcept {

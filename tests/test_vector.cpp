@@ -2,6 +2,7 @@
 #include "bluestl/vector.h"
 #include <catch2/catch_test_macros.hpp>
 #include <string>
+#include <compare>
 
 // bluestl::vectorのテストケース
 
@@ -572,15 +573,14 @@ TEST_CASE("bluestl::vector swap()と比較演算子", "[vector]") {
         REQUIRE(v1 < v4);
         REQUIRE(v3 > v1);
 
-        REQUIRE(v1 <= v2);
-        REQUIRE(v1 <= v3);
+        REQUIRE(v1 <= v2);        REQUIRE(v1 <= v3);
         REQUIRE(v2 >= v1);
 
         // 比較演算子の順序関係
-        REQUIRE((v1 <=> v2) == 0);
-        REQUIRE((v1 <=> v3) < 0);
-        REQUIRE((v3 <=> v1) > 0);
-        REQUIRE((v1 <=> v4) < 0);
+        REQUIRE((v1 <=> v2) == std::strong_ordering::equal);
+        REQUIRE((v1 <=> v3) == std::strong_ordering::less);
+        REQUIRE((v3 <=> v1) == std::strong_ordering::greater);
+        REQUIRE((v1 <=> v4) == std::strong_ordering::less);
     }
 }
 

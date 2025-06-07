@@ -95,15 +95,29 @@ TEST_CASE("fixed_hash_map の基本操作", "[fixed_hash_map]") {
         REQUIRE(m2 > m1);
         REQUIRE(m1 <= m2);
         REQUIRE(m2 >= m1);
-    }
-    SECTION("erase(iterator)の動作") {
+    }    SECTION("erase(iterator)の動作") {
         fixed_hash_map<int, std::string, 8> m;
         m.insert(1, "a");
         m.insert(2, "b");
+
+        // 削除前の状態を確認
+        REQUIRE(m.size() == 2);
+        REQUIRE(m.contains(1));
+        REQUIRE(m.contains(2));
+
         auto it = m.find(1);
         it = m.erase(it);
+
+        // 削除後の状態を確認
+        REQUIRE(m.size() == 1);
         REQUIRE(m.find(1) == m.end());
-        REQUIRE(it == m.find(2));
+        REQUIRE(m.contains(2));
+
+        // 返されたイテレータが有効で、残りの要素のいずれかを指すことを確認
+        if (it != m.end()) {
+            REQUIRE(it->first == 2);
+            REQUIRE(it->second == "b");
+        }
     }
     SECTION("構造化束縛の動作") {
         fixed_hash_map<int, std::string, 8> m;

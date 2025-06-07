@@ -40,3 +40,4 @@ runtime
 .vscode
 .vs
 out
+debug_build

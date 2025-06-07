@@ -168,4 +168,66 @@ TEST_CASE("fixed_vector の基本・拡張機能", "[vector][fixed]") {
         REQUIRE(v[0].v == 1);
         REQUIRE(v[1].v == 2);
     }
+
+    SECTION("境界チェック強化テスト") {
+        fixed_vector<int, 5> v;
+        v.push_back(10);
+        v.push_back(20);
+        v.push_back(30);
+
+        // 正常なアクセス
+        CHECK(v.at(0) == 10);
+        CHECK(v.at(1) == 20);
+        CHECK(v.at(2) == 30);
+
+        // 範囲外アクセスは本来アサーションが発生するが、テストでは確認できない
+        // 代わりに、有効な範囲のテストのみ実行
+
+        // front/backの正常動作
+        CHECK(v.front() == 10);
+        CHECK(v.back() == 30);
+
+        // 空のベクターでfront/backを呼ぶとアサーション発生（テストでは確認できない）
+        fixed_vector<int, 5> empty_v;
+        CHECK(empty_v.empty() == true);
+        CHECK(empty_v.size() == 0);
+    }
+
+    SECTION("メモリ効率とアライメントテスト") {
+        // 固定サイズベクターのメモリ使用量確認
+        fixed_vector<int, 10> v;
+
+        // 要素を追加していても capacity は固定
+        CHECK(v.capacity() == 10);
+
+        for (int i = 0; i < 5; ++i) {
+            v.push_back(i * 2);
+        }
+
+        CHECK(v.size() == 5);
+        CHECK(v.capacity() == 10); // 容量は変わらない
+
+        // データポインタが適切にアライメントされていることを確認
+        auto* data_ptr = v.data();
+        CHECK(data_ptr != nullptr);
+        CHECK(reinterpret_cast<uintptr_t>(data_ptr) % alignof(int) == 0);
+    }
+
+    SECTION("容量超過時の動作確認") {
+        fixed_vector<int, 3> v;
+
+        // 容量以内は正常に動作
+        CHECK(v.push_back(1) == true);
+        CHECK(v.push_back(2) == true);
+        CHECK(v.push_back(3) == true);
+        CHECK(v.size() == 3);
+
+        // 容量超過は失敗
+        CHECK(v.push_back(4) == false);
+        CHECK(v.size() == 3); // サイズは変わらない
+
+        // emplace_backでも同様
+        CHECK(v.emplace_back(5) == false);
+        CHECK(v.size() == 3);
+    }
 }
