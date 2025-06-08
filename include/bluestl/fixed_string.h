@@ -57,7 +57,7 @@ namespace bluestl {
  */
 template <std::size_t Capacity>
 class fixed_string {
-public:
+   public:
     using value_type = char;
     using reference = char&;
     using const_reference = const char&;
@@ -67,35 +67,36 @@ public:
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    static constexpr size_type npos = static_cast<size_type>(-1);    /**
+    static constexpr size_type npos = static_cast<size_type>(-1);
+
+    /**
      * @brief デフォルトコンストラクタ
      */
-    constexpr fixed_string() noexcept : size_(0), storage_{'\0'} {
-    }
+    constexpr fixed_string() noexcept : size_(0), storage_{ '\0' } {}
 
     /**
      * @brief デストラクタ
      */
-    ~fixed_string() noexcept = default;    /**
-     * @brief C文字列からの構築
-     * @param str C文字列
-     */
-    constexpr fixed_string(const char* str) noexcept : size_(0), storage_{'\0'} {
+    ~fixed_string() noexcept = default; /**
+                                         * @brief C文字列からの構築
+                                         * @param str C文字列
+                                         */
+    constexpr fixed_string(const char* str) noexcept : size_(0), storage_{ '\0' } {
         if (str) {
             assign(str);
         }
-    }    /**
-     * @brief string_viewからの構築
-     * @param sv string_view
-     */
-    constexpr fixed_string(std::string_view sv) noexcept : size_(0), storage_{'\0'} {
+    } /**
+       * @brief string_viewからの構築
+       * @param sv string_view
+       */
+    constexpr fixed_string(std::string_view sv) noexcept : size_(0), storage_{ '\0' } {
         assign(sv);
-    }    /**
-     * @brief C文字列から指定長さで構築
-     * @param str C文字列
-     * @param count 使用する文字数
-     */
-    constexpr fixed_string(const char* str, size_type count) noexcept : size_(0), storage_{'\0'} {
+    } /**
+       * @brief C文字列から指定長さで構築
+       * @param str C文字列
+       * @param count 使用する文字数
+       */
+    constexpr fixed_string(const char* str, size_type count) noexcept : size_(0), storage_{ '\0' } {
         assign(str, count);
     }
 
@@ -104,16 +105,16 @@ public:
      * @param count 文字数
      * @param ch 文字
      */
-    constexpr fixed_string(size_type count, char ch) noexcept : size_(0), storage_{'\0'} {
+    constexpr fixed_string(size_type count, char ch) noexcept : size_(0), storage_{ '\0' } {
         assign(count, ch);
-    }    /**
-     * @brief イテレータから構築
-     * @tparam InputIt 入力イテレータ型
-     * @param first 開始イテレータ
-     * @param last 終了イテレータ
-     */
-    template<typename InputIt>
-    constexpr fixed_string(InputIt first, InputIt last) noexcept : size_(0), storage_{'\0'} {
+    } /**
+       * @brief イテレータから構築
+       * @tparam InputIt 入力イテレータ型
+       * @param first 開始イテレータ
+       * @param last 終了イテレータ
+       */
+    template <typename InputIt>
+    constexpr fixed_string(InputIt first, InputIt last) noexcept : size_(0), storage_{ '\0' } {
         assign(first, last);
     }
 
@@ -121,7 +122,7 @@ public:
      * @brief コピーコンストラクタ
      * @param other コピー元
      */
-    constexpr fixed_string(const fixed_string& other) noexcept : size_(0), storage_{'\0'} {
+    constexpr fixed_string(const fixed_string& other) noexcept : size_(0), storage_{ '\0' } {
         assign(other);
     }
 
@@ -129,7 +130,7 @@ public:
      * @brief ムーブコンストラクタ
      * @param other ムーブ元
      */
-    constexpr fixed_string(fixed_string&& other) noexcept : size_(0), storage_{'\0'} {
+    constexpr fixed_string(fixed_string&& other) noexcept : size_(0), storage_{ '\0' } {
         assign(other);
         other.clear();
     }
@@ -271,7 +272,7 @@ public:
         return storage_[pos];
     }
 
-    /**
+    /**F
      * @brief 範囲チェック付きアクセス（const版）
      * @param pos インデックス
      * @return 文字参照
@@ -473,10 +474,10 @@ public:
         }
         size_ = len;
         storage_[size_] = '\0';
-    }    /**
-     * @brief 文字列を代入
-     * @param other 他のfixed_string
-     */
+    } /**
+       * @brief 文字列を代入
+       * @param other 他のfixed_string
+       */
     constexpr void assign(const fixed_string& other) noexcept {
         clear();
         size_type len = (other.size_ > Capacity) ? Capacity : other.size_;
@@ -525,7 +526,7 @@ public:
      * @param first 開始イテレータ
      * @param last 終了イテレータ
      */
-    template<typename InputIt>
+    template <typename InputIt>
     constexpr void assign(InputIt first, InputIt last) noexcept {
         clear();
         for (auto it = first; it != last && size_ < Capacity; ++it) {
@@ -554,11 +555,11 @@ public:
         size_ += str_len;
         storage_[size_] = '\0';
         return true;
-    }    /**
-     * @brief 文字列を末尾に追加
-     * @param sv string_view
-     * @return 追加に成功したらtrue
-     */
+    } /**
+       * @brief 文字列を末尾に追加
+       * @param sv string_view
+       * @return 追加に成功したらtrue
+       */
     constexpr bool append(std::string_view sv) noexcept {
         if (size_ + sv.size() > Capacity) return false;
 
@@ -618,7 +619,7 @@ public:
      * @param last 終了イテレータ
      * @return 追加に成功したらtrue
      */
-    template<typename InputIt>
+    template <typename InputIt>
     constexpr bool append(InputIt first, InputIt last) noexcept {
         size_type old_size = size_;
         for (auto it = first; it != last && size_ < Capacity; ++it) {
@@ -754,12 +755,12 @@ public:
             if (match) return i;
         }
         return npos;
-    }    /**
-     * @brief 文字を検索
-     * @param ch 検索する文字
-     * @param pos 検索開始位置
-     * @return 見つかった位置（見つからない場合はnpos）
-     */
+    } /**
+       * @brief 文字を検索
+       * @param ch 検索する文字
+       * @param pos 検索開始位置
+       * @return 見つかった位置（見つからない場合はnpos）
+       */
     [[nodiscard]] constexpr size_type find(char ch, size_type pos = 0) const noexcept {
         for (size_type i = pos; i < size_; ++i) {
             if (storage_[i] == ch) return i;
@@ -941,7 +942,8 @@ public:
 
     friend constexpr bool operator!=(const fixed_string& lhs, const char* rhs) noexcept {
         return !(lhs == rhs);
-    }    friend constexpr bool operator!=(const char* lhs, const fixed_string& rhs) noexcept {
+    }
+    friend constexpr bool operator!=(const char* lhs, const fixed_string& rhs) noexcept {
         return !(rhs == lhs);
     }
 
@@ -1009,7 +1011,8 @@ public:
 
     friend constexpr bool operator!=(const fixed_string& lhs, std::string_view rhs) noexcept {
         return !(lhs == rhs);
-    }    friend constexpr bool operator!=(std::string_view lhs, const fixed_string& rhs) noexcept {
+    }
+    friend constexpr bool operator!=(std::string_view lhs, const fixed_string& rhs) noexcept {
         return !(rhs == lhs);
     }
 
@@ -1056,7 +1059,7 @@ public:
         return !(lhs < rhs);
     }
 
-private:
+   private:
     size_type size_;
     char storage_[Capacity + 1];  // +1 for null terminator
 };
