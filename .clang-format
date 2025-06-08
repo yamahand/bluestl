@@ -26,4 +26,10 @@ BraceWrapping:                # 波括弧の配置に関する設定
   SplitEmptyRecord: false     # 空のstruct/classは1行にまとめない
   SplitEmptyNamespace: false  # 空のnamespaceは1行にまとめない
 Cpp11BracedListStyle: false   # C++11の初期化リストスタイルを無効化
+ReflowComments: true              # コメントの自動リフロー
+AlignTrailingComments: true       # 行末コメントを揃える
+SpacesBeforeTrailingComments: 2   # 行末コメント前のスペース数
+BreakBeforeInlineASMColon: OnlyMultiline
+CommentPragmas: '^(NOLINT|TODO)'
+FixNamespaceComments: true
 # SpacesInBracedInitList: true
