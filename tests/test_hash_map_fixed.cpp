@@ -1,4 +1,4 @@
-﻿﻿// テストコード for hash_map.h
+﻿// テストコード for hash_map.h
 #include "bluestl/optional.h"
 #include "bluestl/hash_map.h"
 #include "bluestl/allocator.h"

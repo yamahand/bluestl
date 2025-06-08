@@ -67,44 +67,35 @@ public:
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    static constexpr size_type npos = static_cast<size_type>(-1);
-
-    /**
+    static constexpr size_type npos = static_cast<size_type>(-1);    /**
      * @brief デフォルトコンストラクタ
      */
-    constexpr fixed_string() noexcept : size_(0) {
-        storage_[0] = '\0';
+    constexpr fixed_string() noexcept : size_(0), storage_{'\0'} {
     }
 
     /**
      * @brief デストラクタ
      */
-    ~fixed_string() noexcept = default;
-
-    /**
+    ~fixed_string() noexcept = default;    /**
      * @brief C文字列からの構築
      * @param str C文字列
      */
-    constexpr fixed_string(const char* str) noexcept : size_(0) {
+    constexpr fixed_string(const char* str) noexcept : size_(0), storage_{'\0'} {
         if (str) {
             assign(str);
-        } else {
-            storage_[0] = '\0';
         }
-    }
-
-    /**
+    }    /**
      * @brief string_viewからの構築
      * @param sv string_view
      */
-    constexpr fixed_string(std::string_view sv) noexcept : size_(0) {
+    constexpr fixed_string(std::string_view sv) noexcept : size_(0), storage_{'\0'} {
         assign(sv);
     }    /**
      * @brief C文字列から指定長さで構築
      * @param str C文字列
      * @param count 使用する文字数
      */
-    constexpr fixed_string(const char* str, size_type count) noexcept : size_(0) {
+    constexpr fixed_string(const char* str, size_type count) noexcept : size_(0), storage_{'\0'} {
         assign(str, count);
     }
 
@@ -113,18 +104,16 @@ public:
      * @param count 文字数
      * @param ch 文字
      */
-    constexpr fixed_string(size_type count, char ch) noexcept : size_(0) {
+    constexpr fixed_string(size_type count, char ch) noexcept : size_(0), storage_{'\0'} {
         assign(count, ch);
-    }
-
-    /**
+    }    /**
      * @brief イテレータから構築
      * @tparam InputIt 入力イテレータ型
      * @param first 開始イテレータ
      * @param last 終了イテレータ
      */
     template<typename InputIt>
-    constexpr fixed_string(InputIt first, InputIt last) noexcept : size_(0) {
+    constexpr fixed_string(InputIt first, InputIt last) noexcept : size_(0), storage_{'\0'} {
         assign(first, last);
     }
 
@@ -132,7 +121,7 @@ public:
      * @brief コピーコンストラクタ
      * @param other コピー元
      */
-    constexpr fixed_string(const fixed_string& other) noexcept : size_(0) {
+    constexpr fixed_string(const fixed_string& other) noexcept : size_(0), storage_{'\0'} {
         assign(other);
     }
 
@@ -140,7 +129,7 @@ public:
      * @brief ムーブコンストラクタ
      * @param other ムーブ元
      */
-    constexpr fixed_string(fixed_string&& other) noexcept : size_(0) {
+    constexpr fixed_string(fixed_string&& other) noexcept : size_(0), storage_{'\0'} {
         assign(other);
         other.clear();
     }
@@ -547,21 +536,6 @@ public:
     }
 
     /**
-     * @brief 文字を指定回数繰り返して代入
-     * @param count 文字数
-     * @param ch 文字
-     */
-    constexpr void assign(size_type count, char ch) noexcept {
-        clear();
-        size_type len = (count > Capacity) ? Capacity : count;
-        for (size_type i = 0; i < len; ++i) {
-            storage_[i] = ch;
-        }
-        size_ = len;
-        storage_[size_] = '\0';
-    }
-
-    /**
      * @brief 文字列を末尾に追加
      * @param str C文字列
      * @return 追加に成功したらtrue
@@ -667,23 +641,6 @@ public:
             storage_[size_ + i] = other.storage_[i];
         }
         size_ += other.size_;
-        storage_[size_] = '\0';
-        return true;
-    }
-
-    /**
-     * @brief 文字を指定回数末尾に追加
-     * @param count 文字数
-     * @param ch 文字
-     * @return 追加に成功したらtrue
-     */
-    constexpr bool append(size_type count, char ch) noexcept {
-        if (size_ + count > Capacity) return false;
-
-        for (size_type i = 0; i < count; ++i) {
-            storage_[size_ + i] = ch;
-        }
-        size_ += count;
         storage_[size_] = '\0';
         return true;
     }
@@ -1012,8 +969,8 @@ public:
     }
 
 private:
-    char storage_[Capacity + 1];  // +1 for null terminator
     size_type size_;
+    char storage_[Capacity + 1];  // +1 for null terminator
 };
 
 }  // namespace bluestl
