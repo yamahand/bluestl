@@ -222,8 +222,15 @@ public:
         void validate() const noexcept {
             BLUESTL_ASSERT(container_ && "Iterator has null container");
             BLUESTL_ASSERT(index_ <= container_->capacity_ && "Iterator index out of bounds");
-        }
-    };
+        }    };
+
+    /**
+     * @brief デフォルトコンストラクタ。デフォルトアロケータを使用します。
+     */
+    hash_map() noexcept
+        : size_(0), deleted_count_(0), capacity_(initial_capacity), allocator_(), buckets_(nullptr) {
+        allocate_buckets(capacity_);
+    }
 
     /**
      * @brief コンストラクタ。外部アロケータを指定します。
@@ -259,15 +266,11 @@ public:
 
         allocate_buckets(capacity_);
         insert(first, last);
-    }
-
-    /**
+    }    /**
      * @brief デストラクタ。要素のデストラクタを呼び出し、確保したメモリを解放します。
-     */
-    ~hash_map() noexcept {
+     */    ~hash_map() noexcept {
         if (buckets_) {
-            destroy_buckets();
-            allocator_.deallocate(buckets_, capacity_ * sizeof(bucket));
+            deallocate_buckets();
         }
     }
 
@@ -289,18 +292,16 @@ public:
      * @brief コピー代入演算子。
      * @param other コピー元の hash_map オブジェクト。
      * @return *this への参照。
-     */
-    hash_map& operator=(const hash_map& other) noexcept {
-        if (this != &other) {
-            clear();
-            if (capacity_ < other.capacity_) {
-                if (buckets_) {
-                    allocator_.deallocate(buckets_, capacity_ * sizeof(bucket));
-                    buckets_ = nullptr;
+     */        hash_map& operator=(const hash_map& other) noexcept {
+            if (this != &other) {
+                clear();                if (capacity_ < other.capacity_) {
+                    if (buckets_) {
+                        deallocate_buckets();
+                        buckets_ = nullptr;
+                    }
+                    capacity_ = other.capacity_;
+                    allocate_buckets(capacity_);
                 }
-                capacity_ = other.capacity_;
-                allocate_buckets(capacity_);
-            }
 
             for (size_type i = 0; i < other.capacity_; ++i) {
                 if (other.buckets_[i].is_used() && !other.buckets_[i].is_deleted()) {
@@ -331,12 +332,9 @@ public:
      * @brief ムーブ代入演算子。
      * @param other ムーブ元の hash_map オブジェクト。ムーブ後は空の状態になります。
      * @return *this への参照。
-     */
-    hash_map& operator=(hash_map&& other) noexcept {
-        if (this != &other) {
+     */    hash_map& operator=(hash_map&& other) noexcept {        if (this != &other) {
             if (buckets_) {
-                destroy_buckets();
-                allocator_.deallocate(buckets_, capacity_ * sizeof(bucket));
+                deallocate_buckets();
             }
 
             size_ = other.size_;
@@ -708,12 +706,10 @@ public:
      */
     bool erase(const key_type& key) noexcept {
         size_type idx = find_index(key);
-        if (idx == npos) return false;
-
-        // 要素を破棄してトゥームストーンとしてマーク
+        if (idx == npos) return false;        // 要素を破棄してトゥームストーンとしてマーク
         buckets_[idx].kv.~pair<Key, T>();
         buckets_[idx].set_deleted(true);
-        buckets_[idx].set_used(false);
+        // Note: is_used() はトゥームストーンでは true のままにする
         --size_;
         ++deleted_count_;
 
@@ -740,13 +736,11 @@ public:
 
         // 次のイテレータを削除前に計算
         iterator next_it(this, idx);
-        ++next_it;
-
-        if (idx < capacity_ && buckets_[idx].is_used() && !buckets_[idx].is_deleted()) {
+        ++next_it;        if (idx < capacity_ && buckets_[idx].is_used() && !buckets_[idx].is_deleted()) {
             // 要素を破棄してトゥームストーンとしてマーク
             buckets_[idx].kv.~pair<Key, T>();
             buckets_[idx].set_deleted(true);
-            buckets_[idx].set_used(false);
+            // Note: is_used() はトゥームストーンでは true のままにする
             --size_;
             ++deleted_count_;
 
@@ -926,16 +920,29 @@ private:
 
     // Make hash_iterator a friend to access private members
     template <bool IsConst>
-    friend class hash_iterator;
-
-    /**
+    friend class hash_iterator;    /**
      * @brief 指定された容量 n でバケット配列を割り当て、各バケットをデフォルト構築します。
      * @param n 割り当てるバケットの数。
      */
     void allocate_buckets(size_type n) noexcept {
-        buckets_ = static_cast<bucket*>(allocator_.allocate(n * sizeof(bucket)));
+        using bucket_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<bucket>;
+        bucket_allocator bucket_alloc(allocator_);
+        buckets_ = bucket_alloc.allocate(n);
         for (size_type i = 0; i < n; ++i) {
             new (&buckets_[i]) bucket();
+        }
+    }
+
+    /**
+     * @brief バケット配列の割り当てとデストラクタ呼び出しを行います。
+     */
+    void deallocate_buckets() noexcept {
+        if (buckets_) {
+            destroy_buckets();
+            using bucket_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<bucket>;
+            bucket_allocator bucket_alloc(allocator_);
+            bucket_alloc.deallocate(buckets_, capacity_);
+            buckets_ = nullptr;
         }
     }
 
@@ -1029,15 +1036,15 @@ private:
             }
         }
 
-        BLUESTL_ASSERT(size_ == old_size && "Element count mismatch after rehash");
-
-        for (size_type i = 0; i < old_capacity; ++i) {
+        BLUESTL_ASSERT(size_ == old_size && "Element count mismatch after rehash");        for (size_type i = 0; i < old_capacity; ++i) {
             if (old_buckets[i].is_used() && !old_buckets[i].is_deleted()) {
                 old_buckets[i].kv.~pair();
             }
         }
 
-        allocator_.deallocate(old_buckets, old_capacity * sizeof(bucket));
+        using bucket_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<bucket>;
+        bucket_allocator bucket_alloc(allocator_);
+        bucket_alloc.deallocate(old_buckets, old_capacity);
     }
 
     /**

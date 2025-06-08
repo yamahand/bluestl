@@ -5,6 +5,7 @@
 #include "hash_murmur.h"
 #include <cstdint>
 #include <type_traits>
+#include <string_view>
 
 // 使用するハッシュアルゴリズムを切り替えるマクロ
 // BLUESTL_HASH_ALGO に "fnv1a", "xx", "murmur" のいずれかを指定
@@ -102,5 +103,20 @@ constexpr hash_default_t hash(const T& value) noexcept {
 #else
 #error "BLUESTL_HASH_ALGO must be fnv1a, xx, or murmur"
 #endif
+
+// fixed_stringのハッシュ特殊化（前方宣言が必要なので、includeの後に配置）
+template <std::size_t Capacity>
+class fixed_string;
+
+template <std::size_t Capacity>
+constexpr hash_default_t hash(const fixed_string<Capacity>& value) noexcept {
+#if BLUESTL_HASH_ALGO == fnv1a
+    return fnv1a_hash(value.data(), value.size());
+#elif BLUESTL_HASH_ALGO == xx
+    return xxhash32(value.data(), value.size());
+#elif BLUESTL_HASH_ALGO == murmur
+    return murmur3_32(value.data(), value.size());
+#endif
+}
 
 }  // namespace bluestl

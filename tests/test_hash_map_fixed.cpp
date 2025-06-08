@@ -1,4 +1,4 @@
-﻿// テストコード for hash_map.h
+﻿﻿// テストコード for hash_map.h
 #include "bluestl/optional.h"
 #include "bluestl/hash_map.h"
 #include "bluestl/allocator.h"
@@ -152,7 +152,9 @@ TEST_CASE("hash_map コピーと移動のテスト", "[hash_map]") {
         original.insert(1, "one");
         original.insert(2, "two");
 
-        hash_map_type moved(std::move(original));
+        auto alloc_moved = allocator_type("test_hash_map_moved");
+        hash_map_type moved(alloc_moved);
+        moved = std::move(original);
 
         CHECK(moved.size() == 2);
         CHECK(moved.contains(1));
@@ -393,35 +395,29 @@ TEST_CASE("hash_map try_getのテスト", "[hash_map]") {
  */
 TEST_CASE("hash_map STL準拠APIのテスト", "[hash_map][stl_api]") {
     auto alloc = allocator_type("test_hash_map_stl_api");
-    hash_map_type map(alloc);
-
-    SECTION("try_emplace: 新規挿入と既存キー") {
-        auto [it1, inserted1] = map.try_emplace(1, "one");
-        CHECK(inserted1);
+    hash_map_type map(alloc);    SECTION("try_emplace: 新規挿入と既存キー") {
+        auto result1 = map.try_emplace(1, std::string("one"));
+        CHECK(result1.second);
         CHECK(map[1] == "one");
         // 既存キーには挿入されない
-        auto [it2, inserted2] = map.try_emplace(1, "uno");
-        CHECK_FALSE(inserted2);
+        auto result2 = map.try_emplace(1, std::string("uno"));
+        CHECK_FALSE(result2.second);
         CHECK(map[1] == "one");
-    }
-
-    SECTION("insert_or_assign: 新規挿入と上書き") {
-        auto [it1, inserted1] = map.insert_or_assign(2, "two");
-        CHECK(inserted1);
+    }    SECTION("insert_or_assign: 新規挿入と上書き") {
+        auto result1 = map.insert_or_assign(2, std::string("two"));
+        CHECK(result1.second);
         CHECK(map[2] == "two");
         // 既存キーは上書きされる
-        auto [it2, inserted2] = map.insert_or_assign(2, "TWO");
-        CHECK_FALSE(inserted2);
+        auto result2 = map.insert_or_assign(2, std::string("TWO"));
+        CHECK_FALSE(result2.second);
         CHECK(map[2] == "TWO");
-    }
-
-    SECTION("emplace: 新規挿入のみ") {
-        auto [it1, inserted1] = map.emplace(3, "three");
-        CHECK(inserted1);
+    }    SECTION("emplace: 新規挿入のみ") {
+        auto result1 = map.emplace(3, std::string("three"));
+        CHECK(result1.second);
         CHECK(map[3] == "three");
         // 既存キーには挿入されない
-        auto [it2, inserted2] = map.emplace(3, "tres");
-        CHECK_FALSE(inserted2);
+        auto result2 = map.emplace(3, std::string("tres"));
+        CHECK_FALSE(result2.second);
         CHECK(map[3] == "three");
     }
 }
@@ -443,64 +439,59 @@ TEST_CASE("hash_map ムーブセマンティクスのテスト", "[hash_map][mov
         int key2 = 1;
         map[std::move(key2)] = "ONE";
         CHECK(map[1] == "ONE");
-    }
-
-    SECTION("insert ムーブ") {
+    }    SECTION("insert ムーブ") {
         int key1 = 1;
         std::string val1 = "one";
-        auto [it1, inserted1] = map.insert(std::move(key1), std::move(val1));
-        CHECK(inserted1);
+        auto result1 = map.insert(std::move(key1), std::move(val1));
+        CHECK(result1.second);
         CHECK(map.contains(1));
         CHECK(map[1] == "one");
         CHECK(val1.empty());  // ムーブされたことを確認
 
         int key2 = 1;  // 既存キー
         std::string val2 = "uno";
-        auto [it2, inserted2] = map.insert(std::move(key2), std::move(val2));
-        CHECK_FALSE(inserted2);
+        auto result2 = map.insert(std::move(key2), std::move(val2));
+        CHECK_FALSE(result2.second);
         CHECK(map[1] == "one");     // 変更されない
         CHECK_FALSE(val2.empty());  // ムーブされなかったことを確認
     }
 
     SECTION("try_emplace ムーブ") {
-        int key1 = 1;
-        auto [it1, inserted1] = map.try_emplace(std::move(key1), "one");
-        CHECK(inserted1);
+        int key1 = 1;        auto result1 = map.try_emplace(std::move(key1), std::string("one"));
+        CHECK(result1.second);
         CHECK(map.contains(1));
         CHECK(map[1] == "one");
 
         int key2 = 1;  // 既存キー
-        auto [it2, inserted2] = map.try_emplace(std::move(key2), "uno");
-        CHECK_FALSE(inserted2);
+        auto result2 = map.try_emplace(std::move(key2), std::string("uno"));
+        CHECK_FALSE(result2.second);
         CHECK(map[1] == "one");  // 変更されない
     }
 
     SECTION("emplace ムーブ") {
-        int key1 = 3;
-        auto [it1, inserted1] = map.emplace(std::move(key1), "three");
-        CHECK(inserted1);
+        int key1 = 3;        auto result1 = map.emplace(std::move(key1), std::string("three"));
+        CHECK(result1.second);
         CHECK(map.contains(3));
         CHECK(map[3] == "three");
 
         int key2 = 3;  // 既存キー
-        auto [it2, inserted2] = map.emplace(std::move(key2), "tres");
-        CHECK_FALSE(inserted2);
+        auto result2 = map.emplace(std::move(key2), std::string("tres"));
+        CHECK_FALSE(result2.second);
         CHECK(map[3] == "three");  // 変更されない
     }
 
     SECTION("insert_or_assign ムーブ") {
         int key1 = 2;
-        std::string val1 = "two";
-        auto [it1, inserted1] = map.insert_or_assign(std::move(key1), std::move(val1));
-        CHECK(inserted1);
+        std::string val1 = "two";        auto result1 = map.insert_or_assign(std::move(key1), std::move(val1));
+        CHECK(result1.second);
         CHECK(map.contains(2));
         CHECK(map[2] == "two");
         CHECK(val1.empty());  // ムーブされたことを確認
 
         int key2 = 2;  // 既存キー
         std::string val2 = "TWO";
-        auto [it2, inserted2] = map.insert_or_assign(std::move(key2), std::move(val2));
-        CHECK_FALSE(inserted2);
+        auto result2 = map.insert_or_assign(std::move(key2), std::move(val2));
+        CHECK_FALSE(result2.second);
         CHECK(map[2] == "TWO");  // 上書きされる
         CHECK(val2.empty());     // ムーブされたことを確認
     }
