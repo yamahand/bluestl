@@ -941,10 +941,57 @@ public:
 
     friend constexpr bool operator!=(const fixed_string& lhs, const char* rhs) noexcept {
         return !(lhs == rhs);
+    }    friend constexpr bool operator!=(const char* lhs, const fixed_string& rhs) noexcept {
+        return !(rhs == lhs);
     }
 
-    friend constexpr bool operator!=(const char* lhs, const fixed_string& rhs) noexcept {
-        return !(rhs == lhs);
+    // C文字列との比較（順序）
+    friend constexpr bool operator<(const fixed_string& lhs, const char* rhs) noexcept {
+        if (!rhs) return false;
+        size_type rhs_len = 0;
+        while (rhs[rhs_len]) ++rhs_len;
+        size_type min_size = (lhs.size_ < rhs_len) ? lhs.size_ : rhs_len;
+        for (size_type i = 0; i < min_size; ++i) {
+            if (lhs.storage_[i] < rhs[i]) return true;
+            if (lhs.storage_[i] > rhs[i]) return false;
+        }
+        return lhs.size_ < rhs_len;
+    }
+
+    friend constexpr bool operator<(const char* lhs, const fixed_string& rhs) noexcept {
+        if (!lhs) return !rhs.empty();
+        size_type lhs_len = 0;
+        while (lhs[lhs_len]) ++lhs_len;
+        size_type min_size = (lhs_len < rhs.size_) ? lhs_len : rhs.size_;
+        for (size_type i = 0; i < min_size; ++i) {
+            if (lhs[i] < rhs.storage_[i]) return true;
+            if (lhs[i] > rhs.storage_[i]) return false;
+        }
+        return lhs_len < rhs.size_;
+    }
+
+    friend constexpr bool operator>(const fixed_string& lhs, const char* rhs) noexcept {
+        return rhs < lhs;
+    }
+
+    friend constexpr bool operator>(const char* lhs, const fixed_string& rhs) noexcept {
+        return rhs < lhs;
+    }
+
+    friend constexpr bool operator<=(const fixed_string& lhs, const char* rhs) noexcept {
+        return !(rhs < lhs);
+    }
+
+    friend constexpr bool operator<=(const char* lhs, const fixed_string& rhs) noexcept {
+        return !(rhs < lhs);
+    }
+
+    friend constexpr bool operator>=(const fixed_string& lhs, const char* rhs) noexcept {
+        return !(lhs < rhs);
+    }
+
+    friend constexpr bool operator>=(const char* lhs, const fixed_string& rhs) noexcept {
+        return !(lhs < rhs);
     }
 
     // string_viewとの比較
@@ -962,10 +1009,51 @@ public:
 
     friend constexpr bool operator!=(const fixed_string& lhs, std::string_view rhs) noexcept {
         return !(lhs == rhs);
+    }    friend constexpr bool operator!=(std::string_view lhs, const fixed_string& rhs) noexcept {
+        return !(rhs == lhs);
     }
 
-    friend constexpr bool operator!=(std::string_view lhs, const fixed_string& rhs) noexcept {
-        return !(rhs == lhs);
+    // string_viewとの比較（順序）
+    friend constexpr bool operator<(const fixed_string& lhs, std::string_view rhs) noexcept {
+        size_type min_size = (lhs.size_ < rhs.size()) ? lhs.size_ : rhs.size();
+        for (size_type i = 0; i < min_size; ++i) {
+            if (lhs.storage_[i] < rhs[i]) return true;
+            if (lhs.storage_[i] > rhs[i]) return false;
+        }
+        return lhs.size_ < rhs.size();
+    }
+
+    friend constexpr bool operator<(std::string_view lhs, const fixed_string& rhs) noexcept {
+        size_type min_size = (lhs.size() < rhs.size_) ? lhs.size() : rhs.size_;
+        for (size_type i = 0; i < min_size; ++i) {
+            if (lhs[i] < rhs.storage_[i]) return true;
+            if (lhs[i] > rhs.storage_[i]) return false;
+        }
+        return lhs.size() < rhs.size_;
+    }
+
+    friend constexpr bool operator>(const fixed_string& lhs, std::string_view rhs) noexcept {
+        return rhs < lhs;
+    }
+
+    friend constexpr bool operator>(std::string_view lhs, const fixed_string& rhs) noexcept {
+        return rhs < lhs;
+    }
+
+    friend constexpr bool operator<=(const fixed_string& lhs, std::string_view rhs) noexcept {
+        return !(rhs < lhs);
+    }
+
+    friend constexpr bool operator<=(std::string_view lhs, const fixed_string& rhs) noexcept {
+        return !(rhs < lhs);
+    }
+
+    friend constexpr bool operator>=(const fixed_string& lhs, std::string_view rhs) noexcept {
+        return !(lhs < rhs);
+    }
+
+    friend constexpr bool operator>=(std::string_view lhs, const fixed_string& rhs) noexcept {
+        return !(lhs < rhs);
     }
 
 private:
