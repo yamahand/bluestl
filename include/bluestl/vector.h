@@ -3,18 +3,17 @@
 #pragma once
 
 #include "allocator.h"
-#include "allocator_traits.h" // allocator_traits をインクルード
+#include "allocator_traits.h"  // allocator_traits をインクルード
 #include "log_interface.h"
 #include "log_macros.h"
-#include <concepts>      // std::input_iterator のために追加
-#include <iterator>      // std::reverse_iterator, std::iterator_traits, std::distance, std::make_move_iterator
-#include <memory>        // std::addressof
-#include <type_traits> // std::is_nothrow_destructible, std::is_nothrow_move_constructible, etc.
-#include <utility>       // std::move, std::swap, std::forward
-#include <initializer_list> // std::initializer_list
-#include <algorithm>     // std::min, std::max (calculate_new_capacityで使用)
-#include <compare>       // std::compare_three_way_result_t (operator<=>で使用)
-
+#include <concepts>          // std::input_iterator のために追加
+#include <iterator>          // std::reverse_iterator, std::iterator_traits, std::distance, std::make_move_iterator
+#include <memory>            // std::addressof
+#include <type_traits>       // std::is_nothrow_destructible, std::is_nothrow_move_constructible, etc.
+#include <utility>           // std::move, std::swap, std::forward
+#include <initializer_list>  // std::initializer_list
+#include <algorithm>         // std::min, std::max (calculate_new_capacityで使用)
+#include <compare>           // std::compare_three_way_result_t (operator<=>で使用)
 
 namespace bluestl {
 /**
@@ -28,21 +27,21 @@ namespace bluestl {
  * - STL std::vector風インターフェース
  * - allocatorは値で保持し、allocator_traits経由で操作
  */
-template <typename T, typename Allocator = allocator<T>> // デフォルトアロケータを型付きに修正
+template <typename T, typename Allocator = allocator<T>>  // デフォルトアロケータを型付きに修正
 class vector {
    public:
     // --- 型定義 ---
     using value_type = T;
     using allocator_type = Allocator;
-    using traits_type = allocator_traits<Allocator>; // allocator_traits のエイリアス
+    using traits_type = allocator_traits<Allocator>;  // allocator_traits のエイリアス
     using size_type = typename traits_type::size_type;
     using difference_type = typename traits_type::difference_type;
     using reference = value_type&;
     using const_reference = const value_type&;
     using pointer = typename traits_type::pointer;
     using const_pointer = typename traits_type::const_pointer;
-    using iterator = pointer;                                              // シンプルなポインタイテレータ
-    using const_iterator = const_pointer;                                  // シンプルなポインタイテレータ
+    using iterator = pointer;              // シンプルなポインタイテレータ
+    using const_iterator = const_pointer;  // シンプルなポインタイテレータ
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -60,12 +59,10 @@ class vector {
      * @brief アロケータのみを受け取るコンストラクタ
      * @param alloc 使用するアロケータ (コピーまたはムーブされる)
      */
-    explicit vector(const Allocator& alloc) noexcept
-        : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {}
+    explicit vector(const Allocator& alloc) noexcept : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {}
 
     explicit vector(Allocator&& alloc) noexcept
         : m_allocator(std::move(alloc)), m_data(nullptr), m_size(0), m_capacity(0) {}
-
 
     /**
      * @brief 指定された数の要素を持つコンストラクタ (デフォルト値で初期化)
@@ -87,7 +84,7 @@ class vector {
      */
     vector(size_type count, const T& value, const Allocator& alloc = Allocator())
         : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {
-         if (count > 0) {
+        if (count > 0) {
             allocate_and_construct(count, value);
         }
     }
@@ -104,7 +101,7 @@ class vector {
         : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {
         // TODO: イテレータのカテゴリに応じて効率的な実装を選択 (std::distanceが使えるか等)
         for (; first != last; ++first) {
-            push_back(*first); // 最も単純な実装
+            push_back(*first);  // 最も単純な実装
         }
     }
 
@@ -115,9 +112,11 @@ class vector {
      */
     vector(const vector& other)
         : m_allocator(traits_type::select_on_container_copy_construction(other.m_allocator)),
-          m_data(nullptr), m_size(0), m_capacity(0) {
+          m_data(nullptr),
+          m_size(0),
+          m_capacity(0) {
         if (other.m_size > 0) {
-            reserve(other.m_size); // selectされたアロケータで確保
+            reserve(other.m_size);  // selectされたアロケータで確保
             // 例外安全性を考慮しない (Bluestlの方針)
             for (size_type i = 0; i < other.m_size; ++i) {
                 traits_type::construct(m_allocator, m_data + i, other.m_data[i]);
@@ -132,7 +131,7 @@ class vector {
      * @details アロケータはムーブされます。リソースの所有権が移動します。
      */
     vector(vector&& other) noexcept
-        : m_allocator(std::move(other.m_allocator)), // アロケータをムーブ
+        : m_allocator(std::move(other.m_allocator)),  // アロケータをムーブ
           m_data(other.m_data),
           m_size(other.m_size),
           m_capacity(other.m_capacity) {
@@ -149,7 +148,7 @@ class vector {
      */
     vector(const vector& other, const Allocator& alloc)
         : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {
-         if (other.m_size > 0) {
+        if (other.m_size > 0) {
             reserve(other.m_size);
             for (size_type i = 0; i < other.m_size; ++i) {
                 traits_type::construct(m_allocator, m_data + i, other.m_data[i]);
@@ -157,9 +156,9 @@ class vector {
             m_size = other.m_size;
         }
     }
-     vector(const vector& other, Allocator&& alloc)
+    vector(const vector& other, Allocator&& alloc)
         : m_allocator(std::move(alloc)), m_data(nullptr), m_size(0), m_capacity(0) {
-         if (other.m_size > 0) {
+        if (other.m_size > 0) {
             reserve(other.m_size);
             for (size_type i = 0; i < other.m_size; ++i) {
                 traits_type::construct(m_allocator, m_data + i, other.m_data[i]);
@@ -167,7 +166,6 @@ class vector {
             m_size = other.m_size;
         }
     }
-
 
     /**
      * @brief ムーブコンストラクタ（アロケータ指定）
@@ -175,8 +173,7 @@ class vector {
      * @param alloc 使用するアロケータ (コピーまたはムーブされる)
      * @details アロケータが異なる場合、要素ごとのムーブが発生します。
      */
-    vector(vector&& other, const Allocator& alloc)
-        : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {
+    vector(vector&& other, const Allocator& alloc) : m_allocator(alloc), m_data(nullptr), m_size(0), m_capacity(0) {
         if (m_allocator == other.m_allocator) {
             // アロケータが同じならリソースをムーブ (効率的)
             m_data = other.m_data;
@@ -199,23 +196,22 @@ class vector {
             }
         }
     }
-     vector(vector&& other, Allocator&& alloc) noexcept(std::is_nothrow_move_constructible_v<Allocator>)
+    vector(vector&& other, Allocator&& alloc) noexcept(std::is_nothrow_move_constructible_v<Allocator>)
         : m_allocator(std::move(alloc)), m_data(nullptr), m_size(0), m_capacity(0) {
-         // アロケータをムーブしたので、otherのアロケータとは比較できない
-         // 要素ごとのムーブを行うのが安全
-         if (other.m_size > 0) {
+        // アロケータをムーブしたので、otherのアロケータとは比較できない
+        // 要素ごとのムーブを行うのが安全
+        if (other.m_size > 0) {
             reserve(other.m_size);
             for (size_type i = 0; i < other.m_size; ++i) {
                 traits_type::construct(m_allocator, m_data + i, std::move(other.m_data[i]));
             }
             m_size = other.m_size;
-         }
-         // other.clear(); // アロケータがムーブされているので呼べない
-         other.m_data = nullptr; // 手動でリセット
-         other.m_size = 0;
-         other.m_capacity = 0;
+        }
+        // other.clear(); // アロケータがムーブされているので呼べない
+        other.m_data = nullptr;  // 手動でリセット
+        other.m_size = 0;
+        other.m_capacity = 0;
     }
-
 
     /**
      * @brief イニシャライザリストコンストラクタ
@@ -255,12 +251,12 @@ class vector {
         if constexpr (traits_type::propagate_on_container_copy_assignment::value) {
             if (m_allocator != other.m_allocator) {
                 // アロケータが異なり、伝播が必要な場合、既存のメモリを解放
-                clear(); // 古いアロケータで要素破棄
-                deallocate_memory(); // 古いアロケータでメモリ解放
-                m_capacity = 0; // 容量リセット
+                clear();              // 古いアロケータで要素破棄
+                deallocate_memory();  // 古いアロケータでメモリ解放
+                m_capacity = 0;       // 容量リセット
                 // m_data は nullptr になっているはず
             }
-            m_allocator = other.m_allocator; // アロケータをコピー
+            m_allocator = other.m_allocator;  // アロケータをコピー
         }
 
         // assign を使うと効率的
@@ -274,19 +270,17 @@ class vector {
      * @param other ムーブ元vector
      * @return *this
      */
-    vector& operator=(vector&& other) noexcept(
-        std::is_nothrow_move_assignable_v<Allocator> ||
-        !traits_type::propagate_on_container_move_assignment::value
-    ) {
+    vector& operator=(vector&& other) noexcept(std::is_nothrow_move_assignable_v<Allocator> ||
+                                               !traits_type::propagate_on_container_move_assignment::value) {
         if (this == &other) {
             return *this;
         }
 
         if constexpr (traits_type::propagate_on_container_move_assignment::value) {
             // アロケータをムーブする場合
-            destroy_elements();    // 既存の要素を破棄
-            deallocate_memory(); // 既存のメモリを解放
-            m_allocator = std::move(other.m_allocator); // アロケータをムーブ
+            destroy_elements();                          // 既存の要素を破棄
+            deallocate_memory();                         // 既存のメモリを解放
+            m_allocator = std::move(other.m_allocator);  // アロケータをムーブ
             m_data = other.m_data;
             m_size = other.m_size;
             m_capacity = other.m_capacity;
@@ -349,11 +343,11 @@ class vector {
      * @return 要素参照
      */
     reference at(size_type i) {
-        BLUESTL_ASSERT(i < m_size); // Bluestlではアサートで境界チェック
+        BLUESTL_ASSERT(i < m_size);  // Bluestlではアサートで境界チェック
         return m_data[i];
     }
     const_reference at(size_type i) const {
-        BLUESTL_ASSERT(i < m_size); // Bluestlではアサートで境界チェック
+        BLUESTL_ASSERT(i < m_size);  // Bluestlではアサートで境界チェック
         return m_data[i];
     }
 
@@ -397,24 +391,48 @@ class vector {
     // --- イテレータ ---
 
     /** @brief 先頭イテレータ取得 */
-    iterator begin() noexcept { return m_data; }
-    const_iterator begin() const noexcept { return m_data; }
-    const_iterator cbegin() const noexcept { return begin(); }
+    iterator begin() noexcept {
+        return m_data;
+    }
+    const_iterator begin() const noexcept {
+        return m_data;
+    }
+    const_iterator cbegin() const noexcept {
+        return begin();
+    }
 
     /** @brief 末尾イテレータ取得 */
-    iterator end() noexcept { return m_data + m_size; }
-    const_iterator end() const noexcept { return m_data + m_size; }
-    const_iterator cend() const noexcept { return end(); }
+    iterator end() noexcept {
+        return m_data + m_size;
+    }
+    const_iterator end() const noexcept {
+        return m_data + m_size;
+    }
+    const_iterator cend() const noexcept {
+        return end();
+    }
 
     /** @brief 逆イテレータ取得 */
-    reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
-    const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
-    const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+    reverse_iterator rbegin() noexcept {
+        return reverse_iterator(end());
+    }
+    const_reverse_iterator rbegin() const noexcept {
+        return const_reverse_iterator(end());
+    }
+    const_reverse_iterator crbegin() const noexcept {
+        return rbegin();
+    }
 
     /** @brief 逆末尾イテレータ取得 */
-    reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
-    const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
-    const_reverse_iterator crend() const noexcept { return rend(); }
+    reverse_iterator rend() noexcept {
+        return reverse_iterator(begin());
+    }
+    const_reverse_iterator rend() const noexcept {
+        return const_reverse_iterator(begin());
+    }
+    const_reverse_iterator crend() const noexcept {
+        return rend();
+    }
 
     // --- 容量 ---
 
@@ -486,7 +504,7 @@ class vector {
      */
     void shrink_to_fit() {
         if (m_capacity <= m_size) {
-            return; // 縮小不要、または既にぴったり
+            return;  // 縮小不要、または既にぴったり
         }
 
         if (m_size == 0) {
@@ -531,7 +549,7 @@ class vector {
      * @return 挿入された要素を指すイテレータ
      */
     iterator insert(const_iterator pos, const T& value) {
-        return emplace(pos, value); // emplaceに委譲
+        return emplace(pos, value);  // emplaceに委譲
     }
 
     /**
@@ -541,7 +559,7 @@ class vector {
      * @return 挿入された要素を指すイテレータ
      */
     iterator insert(const_iterator pos, T&& value) {
-         return emplace(pos, std::move(value)); // emplaceに委譲
+        return emplace(pos, std::move(value));  // emplaceに委譲
     }
 
     /**
@@ -567,7 +585,7 @@ class vector {
                 pointer old_end = m_data + m_size;
                 pointer new_end = old_end + 1;
                 // 末尾要素を新しい位置にムーブ構築
-                traits_type::construct(m_allocator, new_end -1 , std::move_if_noexcept(*(old_end - 1)));
+                traits_type::construct(m_allocator, new_end - 1, std::move_if_noexcept(*(old_end - 1)));
                 // 残りを後ろにムーブ代入
                 for (pointer p = old_end - 1; p > insert_ptr; --p) {
                     *p = std::move_if_noexcept(*(p - 1));
@@ -575,7 +593,7 @@ class vector {
                 // 挿入位置の古い要素を破棄 (ムーブ代入されたので不要)
                 // traits_type::destroy(m_allocator, insert_ptr); // ムーブ代入なら不要
             }
-             // 新しい要素を構築
+            // 新しい要素を構築
             traits_type::construct(m_allocator, insert_ptr, std::forward<Args>(args)...);
 
         } else {
@@ -594,15 +612,14 @@ class vector {
                 }
                 // 挿入位置に新しい要素をムーブ代入または構築
                 // *insert_ptr = T(std::forward<Args>(args)...); // 代入だと既存要素の破棄が必要
-                traits_type::destroy(m_allocator, insert_ptr); // 古い要素を破棄
-                traits_type::construct(m_allocator, insert_ptr, std::forward<Args>(args)...); // 新しく構築
+                traits_type::destroy(m_allocator, insert_ptr);                                 // 古い要素を破棄
+                traits_type::construct(m_allocator, insert_ptr, std::forward<Args>(args)...);  // 新しく構築
             }
         }
 
         ++m_size;
         return m_data + index;
     }
-
 
     /**
      * @brief 指定位置に指定個数の要素を挿入
@@ -621,21 +638,21 @@ class vector {
             reserve(new_cap);
             // reserveによりイテレータが無効になるため、ポインタを再計算
             pointer insert_ptr = m_data + index;
-            pointer old_end = m_data + m_size; // reserve前のサイズ
-            pointer new_end = m_data + m_size + count; // reserve後のサイズ
+            pointer old_end = m_data + m_size;          // reserve前のサイズ
+            pointer new_end = m_data + m_size + count;  // reserve後のサイズ
 
             // 後ろの要素をムーブ
             if (index < m_size) {
-                 pointer move_src_start = m_data + index;
-                 pointer move_dst_start = m_data + index + count;
-                 // 後ろからムーブ構築
-                 for(size_type i = 0; i < (m_size - index); ++i) {
-                     traits_type::construct(m_allocator, new_end - 1 - i, std::move_if_noexcept(*(old_end - 1 - i)));
-                 }
-                 // ムーブ元の要素を破棄
-                 for(size_type i = 0; i < (m_size - index); ++i) {
-                     traits_type::destroy(m_allocator, move_src_start + i);
-                 }
+                pointer move_src_start = m_data + index;
+                pointer move_dst_start = m_data + index + count;
+                // 後ろからムーブ構築
+                for (size_type i = 0; i < (m_size - index); ++i) {
+                    traits_type::construct(m_allocator, new_end - 1 - i, std::move_if_noexcept(*(old_end - 1 - i)));
+                }
+                // ムーブ元の要素を破棄
+                for (size_type i = 0; i < (m_size - index); ++i) {
+                    traits_type::destroy(m_allocator, move_src_start + i);
+                }
             }
             // 新しい要素を構築
             for (size_type i = 0; i < count; ++i) {
@@ -643,7 +660,7 @@ class vector {
             }
 
         } else {
-             // 容量が足りる場合
+            // 容量が足りる場合
             pointer insert_ptr = m_data + index;
             const size_type elems_after = m_size - index;
 
@@ -652,27 +669,28 @@ class vector {
                 pointer old_end = m_data + m_size;
                 if (elems_after > count) {
                     // 移動元と移動先が重ならない部分をムーブ構築
-                    for(size_type i = 0; i < count; ++i) {
+                    for (size_type i = 0; i < count; ++i) {
                         traits_type::construct(m_allocator, old_end + i, std::move_if_noexcept(*(old_end - count + i)));
                     }
                     // 重なる部分をムーブ代入 (後ろから)
-                    for(size_type i = 0; i < elems_after - count; ++i) {
-                         *(old_end - 1 - i) = std::move_if_noexcept(*(old_end - 1 - i - count));
+                    for (size_type i = 0; i < elems_after - count; ++i) {
+                        *(old_end - 1 - i) = std::move_if_noexcept(*(old_end - 1 - i - count));
                     }
                 } else {
                     // 全てムーブ構築 (後ろから)
-                     for(size_type i = 0; i < elems_after; ++i) {
-                        traits_type::construct(m_allocator, old_end + count - 1 - i, std::move_if_noexcept(*(old_end - 1 - i)));
+                    for (size_type i = 0; i < elems_after; ++i) {
+                        traits_type::construct(m_allocator, old_end + count - 1 - i,
+                                               std::move_if_noexcept(*(old_end - 1 - i)));
                     }
                 }
-                 // 挿入位置に値を代入または構築
-                 for(size_type i = 0; i < count; ++i) {
-                     if (i < elems_after) {
-                         *(insert_ptr + i) = value; // 代入
-                     } else {
-                         traits_type::construct(m_allocator, insert_ptr + i, value); // 構築
-                     }
-                 }
+                // 挿入位置に値を代入または構築
+                for (size_type i = 0; i < count; ++i) {
+                    if (i < elems_after) {
+                        *(insert_ptr + i) = value;  // 代入
+                    } else {
+                        traits_type::construct(m_allocator, insert_ptr + i, value);  // 構築
+                    }
+                }
 
             } else {
                 // 末尾への挿入
@@ -701,80 +719,81 @@ class vector {
 
         // 一旦vectorにコピーしてからinsert(pos, count, value)のような実装も可能だが、
         // ここでは単純に一つずつ挿入する (効率は悪い可能性がある)
-        vector temp(first, last, m_allocator); // 一時的にコピー
-        return insert(pos, std::make_move_iterator(temp.begin()), std::make_move_iterator(temp.end())); // ムーブで挿入
+        vector temp(first, last, m_allocator);  // 一時的にコピー
+        return insert(pos, std::make_move_iterator(temp.begin()), std::make_move_iterator(temp.end()));  // ムーブで挿入
     }
 
-     /**
+    /**
      * @brief 指定位置にイテレータ範囲の要素を挿入 (ムーブ版ヘルパー)
      */
     template <std::input_iterator InputIt>
     iterator insert(const_iterator pos, std::move_iterator<InputIt> first, std::move_iterator<InputIt> last) {
         const size_type index = pos - cbegin();
-        const size_type count = std::distance(first, last); // ForwardIterator以上が必要
+        const size_type count = std::distance(first, last);  // ForwardIterator以上が必要
         BLUESTL_ASSERT(index <= m_size);
         if (count == 0) return m_data + index;
 
-         if (m_size + count > m_capacity) {
+        if (m_size + count > m_capacity) {
             size_type new_cap = calculate_new_capacity(m_size + count);
             reserve(new_cap);
             // reserveによりイテレータが無効になるため、ポインタを再計算
             pointer insert_ptr = m_data + index;
-            pointer old_end = m_data + m_size; // reserve前のサイズ
-            pointer new_end = m_data + m_size + count; // reserve後のサイズ
+            pointer old_end = m_data + m_size;          // reserve前のサイズ
+            pointer new_end = m_data + m_size + count;  // reserve後のサイズ
 
             // 後ろの要素をムーブ
             if (index < m_size) {
-                 pointer move_src_start = m_data + index;
-                 pointer move_dst_start = m_data + index + count;
-                 // 後ろからムーブ構築
-                 for(size_type i = 0; i < (m_size - index); ++i) {
-                     traits_type::construct(m_allocator, new_end - 1 - i, std::move_if_noexcept(*(old_end - 1 - i)));
-                 }
-                 // ムーブ元の要素を破棄
-                 for(size_type i = 0; i < (m_size - index); ++i) {
-                     traits_type::destroy(m_allocator, move_src_start + i);
-                 }
+                pointer move_src_start = m_data + index;
+                pointer move_dst_start = m_data + index + count;
+                // 後ろからムーブ構築
+                for (size_type i = 0; i < (m_size - index); ++i) {
+                    traits_type::construct(m_allocator, new_end - 1 - i, std::move_if_noexcept(*(old_end - 1 - i)));
+                }
+                // ムーブ元の要素を破棄
+                for (size_type i = 0; i < (m_size - index); ++i) {
+                    traits_type::destroy(m_allocator, move_src_start + i);
+                }
             }
             // 新しい要素をムーブ構築
             pointer current = insert_ptr;
             for (; first != last; ++first, ++current) {
-                traits_type::construct(m_allocator, current, *first); // *first は右辺値参照のはず
+                traits_type::construct(m_allocator, current, *first);  // *first は右辺値参照のはず
             }
 
         } else {
-             // 容量が足りる場合
+            // 容量が足りる場合
             pointer insert_ptr = m_data + index;
             const size_type elems_after = m_size - index;
             pointer old_end = m_data + m_size;
 
             if (elems_after > 0) {
                 // 後ろに移動する要素がある
-                 if (elems_after > count) {
+                if (elems_after > count) {
                     // 移動元と移動先が重ならない部分をムーブ構築
-                    for(size_type i = 0; i < count; ++i) {
+                    for (size_type i = 0; i < count; ++i) {
                         traits_type::construct(m_allocator, old_end + i, std::move_if_noexcept(*(old_end - count + i)));
                     }
                     // 重なる部分をムーブ代入 (後ろから)
-                    for(size_type i = 0; i < elems_after - count; ++i) {
-                         *(old_end - 1 - i) = std::move_if_noexcept(*(old_end - 1 - i - count));
+                    for (size_type i = 0; i < elems_after - count; ++i) {
+                        *(old_end - 1 - i) = std::move_if_noexcept(*(old_end - 1 - i - count));
                     }
                 } else {
                     // 全てムーブ構築 (後ろから)
-                     for(size_type i = 0; i < elems_after; ++i) {
-                        traits_type::construct(m_allocator, old_end + count - 1 - i, std::move_if_noexcept(*(old_end - 1 - i)));
+                    for (size_type i = 0; i < elems_after; ++i) {
+                        traits_type::construct(m_allocator, old_end + count - 1 - i,
+                                               std::move_if_noexcept(*(old_end - 1 - i)));
                     }
                 }
-                 // 挿入位置に値をムーブ代入またはムーブ構築
-                 pointer current = insert_ptr;
-                 size_type i = 0;
-                 for (; first != last; ++first, ++current, ++i) {
-                     if (i < elems_after) {
-                         *current = *first; // ムーブ代入
-                     } else {
-                         traits_type::construct(m_allocator, current, *first); // ムーブ構築
-                     }
-                 }
+                // 挿入位置に値をムーブ代入またはムーブ構築
+                pointer current = insert_ptr;
+                size_type i = 0;
+                for (; first != last; ++first, ++current, ++i) {
+                    if (i < elems_after) {
+                        *current = *first;  // ムーブ代入
+                    } else {
+                        traits_type::construct(m_allocator, current, *first);  // ムーブ構築
+                    }
+                }
 
             } else {
                 // 末尾への挿入
@@ -787,7 +806,6 @@ class vector {
         m_size += count;
         return m_data + index;
     }
-
 
     /**
      * @brief 指定位置の要素を削除
@@ -807,10 +825,10 @@ class vector {
             pointer next_p = p + 1;
             pointer end_p = m_data + m_size;
             for (; next_p != end_p; ++p, ++next_p) {
-                *p = std::move_if_noexcept(*next_p); // ムーブ代入
+                *p = std::move_if_noexcept(*next_p);  // ムーブ代入
             }
-             // ムーブ元の最後の要素を破棄 (ムーブ代入されたので不要)
-             // traits_type::destroy(m_allocator, p); // 不要
+            // ムーブ元の最後の要素を破棄 (ムーブ代入されたので不要)
+            // traits_type::destroy(m_allocator, p); // 不要
         }
 
         --m_size;
@@ -847,7 +865,7 @@ class vector {
             pointer move_src = p_last;
             pointer end_p = m_data + m_size;
             for (; move_src != end_p; ++move_dest, ++move_src) {
-                *move_dest = std::move_if_noexcept(*move_src); // ムーブ代入
+                *move_dest = std::move_if_noexcept(*move_src);  // ムーブ代入
             }
             // ムーブ元の要素を破棄 (ムーブ代入されたので不要)
             // for (pointer p = move_dest; p != end_p; ++p) {
@@ -864,7 +882,7 @@ class vector {
      * @param value 追加する値
      */
     void push_back(const T& value) {
-        emplace_back(value); // emplace_backに委譲
+        emplace_back(value);  // emplace_backに委譲
     }
 
     /**
@@ -872,7 +890,7 @@ class vector {
      * @param value 追加する値 (ムーブされる)
      */
     void push_back(T&& value) {
-        emplace_back(std::move(value)); // emplace_backに委譲
+        emplace_back(std::move(value));  // emplace_backに委譲
     }
 
     /**
@@ -908,7 +926,7 @@ class vector {
      *          サイズが大きくなる場合、新しい要素はデフォルト構築されます。
      */
     void resize(size_type new_size) {
-         resize(new_size, T()); // デフォルト値でリサイズ
+        resize(new_size, T());  // デフォルト値でリサイズ
     }
 
     /**
@@ -927,11 +945,11 @@ class vector {
             m_size = new_size;
         } else if (new_size > m_size) {
             // サイズを拡大
-            reserve(new_size); // 必要なら再確保
+            reserve(new_size);  // 必要なら再確保
             pointer construct_start = m_data + m_size;
             pointer construct_end = m_data + new_size;
             for (pointer p = construct_start; p != construct_end; ++p) {
-                traits_type::construct(m_allocator, p, value); // 指定値で構築
+                traits_type::construct(m_allocator, p, value);  // 指定値で構築
             }
             m_size = new_size;
         }
@@ -942,10 +960,8 @@ class vector {
      * @brief vector同士の内容を入れ替え
      * @param other 入れ替え先vector
      */
-    void swap(vector& other) noexcept(
-        std::is_nothrow_swappable_v<Allocator> ||
-        !traits_type::propagate_on_container_swap::value
-    ) {
+    void swap(vector& other) noexcept(std::is_nothrow_swappable_v<Allocator> ||
+                                      !traits_type::propagate_on_container_swap::value) {
         if (this == &other) return;
 
         if constexpr (traits_type::propagate_on_container_swap::value) {
@@ -955,7 +971,7 @@ class vector {
             // アロケータを交換しない場合、アロケータが等しい必要がある
             // is_always_equal が true ならチェック不要
             if constexpr (!traits_type::is_always_equal::value) {
-                 BLUESTL_ASSERT(m_allocator == other.m_allocator);
+                BLUESTL_ASSERT(m_allocator == other.m_allocator);
             }
         }
         // データメンバを交換
@@ -971,8 +987,8 @@ class vector {
      * @param value 新しい要素の値
      */
     void assign(size_type count, const T& value) {
-        clear(); // 既存の要素を破棄
-        reserve(count); // 十分な容量を確保
+        clear();         // 既存の要素を破棄
+        reserve(count);  // 十分な容量を確保
         for (size_type i = 0; i < count; ++i) {
             traits_type::construct(m_allocator, m_data + i, value);
         }
@@ -990,18 +1006,17 @@ class vector {
         clear();
         // TODO: イテレータカテゴリに応じて効率化 (std::distanceが使えるか等)
         for (; first != last; ++first) {
-            emplace_back(*first); // emplace_back を使う
+            emplace_back(*first);  // emplace_back を使う
         }
     }
 
-     /**
+    /**
      * @brief イニシャライザリストで内容を置き換える
      * @param ilist 初期化リスト
      */
     void assign(std::initializer_list<T> ilist) {
         assign(ilist.begin(), ilist.end());
     }
-
 
     // --- アロケータ ---
 
@@ -1026,30 +1041,51 @@ class vector {
         if (lhs.m_size != rhs.m_size) return false;
         // std::equal を使うのが簡潔だが、依存を減らすためループで比較
         for (size_type i = 0; i < lhs.m_size; ++i) {
-            if (!(lhs.m_data[i] == rhs.m_data[i])) return false; // operator== が定義されている前提
+            if (!(lhs.m_data[i] == rhs.m_data[i])) return false;  // operator== が定義されている前提
         }
         return true;
-    }
-
-    // operator!= は operator== から自動導出 (C++20)
+    }  // operator!= は operator== から自動導出 (C++20)
     // friend bool operator!=(const vector& lhs, const vector& rhs) { return !(lhs == rhs); }
 
-    // 三方比較演算子 (C++20)
-    friend std::compare_three_way_result_t<T> operator<=>(const vector& lhs, const vector& rhs) {
-         // std::lexicographical_compare_three_way を使うのが簡潔
-         const_pointer l = lhs.m_data;
-         const_pointer r = rhs.m_data;
-         const size_type ln = lhs.m_size;
-         const size_type rn = rhs.m_size;
-         const size_type n = std::min(ln, rn);
-         for(size_type i = 0; i < n; ++i) {
-             if (auto cmp = l[i] <=> r[i]; cmp != 0) { // T に operator<=> が定義されている前提
-                 return cmp;
-             }
-         }
-         return ln <=> rn; // サイズで比較
+    friend bool operator<(const vector& lhs, const vector& rhs) {
+        const size_type ln = lhs.m_size;
+        const size_type rn = rhs.m_size;
+        const size_type n = std::min(ln, rn);
+        for (size_type i = 0; i < n; ++i) {
+            if (lhs.m_data[i] < rhs.m_data[i]) return true;
+            if (rhs.m_data[i] < lhs.m_data[i]) return false;
+        }
+        return ln < rn;
     }
 
+    friend bool operator>(const vector& lhs, const vector& rhs) {
+        return rhs < lhs;
+    }
+
+    friend bool operator<=(const vector& lhs, const vector& rhs) {
+        return !(rhs < lhs);
+    }
+
+    friend bool operator>=(const vector& lhs, const vector& rhs) {
+        return !(lhs < rhs);
+    }
+
+#if _HAS_CXX20
+    // 三方比較演算子 (C++20) - 一時的にコメントアウト
+    /*
+    friend auto operator<=>(const vector& lhs, const vector& rhs) {
+        const size_type ln = lhs.m_size;
+        const size_type rn = rhs.m_size;
+        const size_type n = std::min(ln, rn);
+        for (size_type i = 0; i < n; ++i) {
+            if (auto cmp = lhs.m_data[i] <=> rhs.m_data[i]; cmp != 0) {
+                return cmp;
+            }
+        }
+        return ln <=> rn;
+    }
+    */
+#endif
 
    private:
     Allocator m_allocator;  // アロケータ (値で保持)
@@ -1068,9 +1104,9 @@ class vector {
     size_type calculate_new_capacity(size_type required_capacity) const {
         const size_type current_cap = m_capacity;
         const size_type max = max_size();
-        if (current_cap >= max / 2) { // オーバーフローチェック
-             BLUESTL_ASSERT(required_capacity <= max); // 要求が最大を超えていたらアサート
-             return max;
+        if (current_cap >= max / 2) {                  // オーバーフローチェック
+            BLUESTL_ASSERT(required_capacity <= max);  // 要求が最大を超えていたらアサート
+            return max;
         }
         // 2倍または要求された容量の大きい方を選ぶ (ただしmaxを超えない)
         return std::min(max, std::max(current_cap * 2, required_capacity));
@@ -1080,10 +1116,10 @@ class vector {
      * @brief メモリを解放する
      */
     void deallocate_memory() noexcept {
-         if (m_data) {
+        if (m_data) {
             traits_type::deallocate(m_allocator, m_data, m_capacity);
-            m_data = nullptr; // 解放後はnullptrにしておく
-            m_capacity = 0;   // 容量もリセット
+            m_data = nullptr;  // 解放後はnullptrにしておく
+            m_capacity = 0;    // 容量もリセット
         }
     }
 
@@ -1103,14 +1139,13 @@ class vector {
      */
     void allocate_and_construct(size_type count, const T& value) {
         BLUESTL_ASSERT(count > 0);
-        reserve(count); // メモリ確保
+        reserve(count);  // メモリ確保
         // 例外安全性を考慮しない (Bluestlの方針)
         for (size_type i = 0; i < count; ++i) {
             traits_type::construct(m_allocator, m_data + i, value);
         }
         m_size = count;
     }
-
 };
 
 // --- 非メンバ関数 swap ---
@@ -1121,15 +1156,13 @@ void swap(vector<T, Allocator>& lhs, vector<T, Allocator>& rhs) noexcept(noexcep
 
 // --- Deduction guide (C++17以降) ---
 // イテレータ範囲からの推論
-template <std::input_iterator InputIt, // std::input_iterator を使用
+template <std::input_iterator InputIt,  // std::input_iterator を使用
           typename Allocator = allocator<typename std::iterator_traits<InputIt>::value_type>>
 vector(InputIt, InputIt, Allocator = Allocator())
     -> vector<typename std::iterator_traits<InputIt>::value_type, Allocator>;
 
 // イニシャライザリストからの推論
 template <typename T, typename Allocator = allocator<T>>
-vector(std::initializer_list<T>, Allocator = Allocator())
-    -> vector<T, Allocator>;
+vector(std::initializer_list<T>, Allocator = Allocator()) -> vector<T, Allocator>;
 
-
-} // namespace bluestl
+}  // namespace bluestl

@@ -20,14 +20,14 @@ TEST_CASE("allocator 基本機能テスト", "[allocator]") {
             CHECK(ptr[i] == i * 2);
         }
 
-        // 破棄
-        for (int i = 0; i < 10; ++i) {
-            ptr[i].~int();
-        }
+        // 破棄（プリミティブ型なので明示的なデストラクタ呼び出しは不要）
+        // for (int i = 0; i < 10; ++i) {
+        //     ptr[i].~int();
+        // }
 
         alloc.deallocate(ptr, 10);
     }
-      SECTION("オーバーフロー保護") {
+    SECTION("オーバーフロー保護") {
         // テストは実装されているがアサートで停止するため、コメントアウト
         // 非常に大きなサイズを要求
         // constexpr size_t huge_size = std::numeric_limits<size_t>::max() / sizeof(int) + 1;
@@ -61,10 +61,10 @@ TEST_CASE("allocator アライメント機能テスト", "[allocator]") {
             CHECK(ptr[i] == i * 3.14);
         }
 
-        // 破棄
-        for (int i = 0; i < 5; ++i) {
-            ptr[i].~double();
-        }
+        // 破棄（プリミティブ型なので明示的なデストラクタ呼び出しは不要）
+        // for (int i = 0; i < 5; ++i) {
+        //     ptr[i].~double();
+        // }
 
         alloc.deallocate_aligned(ptr, 5);
     }
@@ -79,7 +79,7 @@ TEST_CASE("allocator アライメント機能テスト", "[allocator]") {
             }
         }
     }
-      SECTION("無効なアライメント") {
+    SECTION("無効なアライメント") {
         // テストは実装されているがアサートで停止するため、コメントアウト
         // 2の冪でないアライメント
         // auto* ptr1 = alloc.allocate_aligned(1, 3); // 3は2の冪でない
@@ -96,7 +96,7 @@ TEST_CASE("allocator アライメント機能テスト", "[allocator]") {
             alloc.deallocate_aligned(ptr, 1);
         }
     }
-      SECTION("アライメントオーバーフロー保護") {
+    SECTION("アライメントオーバーフロー保護") {
         // テストは実装されているがアサートで停止するため、コメントアウト
         // 非常に大きなサイズを要求
         // constexpr size_t huge_size = std::numeric_limits<size_t>::max() / sizeof(double) + 1;

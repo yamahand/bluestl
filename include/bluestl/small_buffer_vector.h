@@ -39,7 +39,7 @@ namespace bluestl {
  * - オーバーフロー時のみヒープ確保
  * - allocatorは外部から渡す
  */
-template <typename T, std::size_t SmallCapacity, typename Allocator = allocator>
+template <typename T, std::size_t SmallCapacity, typename Allocator = allocator<T>>
 class small_buffer_vector {
    public:
     using value_type = T;

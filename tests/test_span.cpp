@@ -196,7 +196,7 @@ TEST_CASE("bluestl::span 比較操作", "[span]") {
 }
 
 TEST_CASE("bluestl::span バイト操作", "[span]") {
-    int arr[] = { 0x12345678, 0x9ABCDEF0 };
+    int arr[] = { 0x12345678, static_cast<int>(0x9ABCDEF0) };
     bluestl::span<int> s(arr, 2);
     SECTION("as_bytes") {
         auto byte_span = bluestl::as_bytes(s);
