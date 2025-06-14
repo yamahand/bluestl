@@ -3,13 +3,13 @@
 - [x] span / array_view
   配列やバッファの一部を安全に参照するための軽量ビュー。
 
-- [ ] array
+- [x] array
   固定サイズ配列の安全なラッパー。
 
 - [ ] string_view
   文字列の非所有ビュー。文字列操作の高速化とメモリ使用量削減。
 
-- [ ] string
+- [x] string
   可変長文字列
 
 - [x] small_vector / small_buffer_vector
