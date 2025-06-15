@@ -1,0 +1,131 @@
+---
+# BlueStl .clang-tidy configuration
+# 静的解析とコード品質チェックの設定
+
+# 基本設定
+Checks: >
+  *,
+  -abseil-*,
+  -android-*,
+  -darwin-*,
+  -fuchsia-*,
+  -google-*,
+  -linuxkernel-*,
+  -llvm-*,
+  -llvmlibc-*,
+  -zircon-*,
+  -altera-*,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -misc-non-private-member-variables-in-classes,
+  -modernize-use-trailing-return-type,
+  -readability-named-parameter,
+  -readability-identifier-length,
+  -bugprone-easily-swappable-parameters,
+  -performance-enum-size,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -hicpp-no-array-decay,
+  -cert-err58-cpp,
+  -cppcoreguidelines-owning-memory,
+  -modernize-use-nodiscard,
+  -readability-function-cognitive-complexity,
+  -bugprone-exception-escape
+
+# BlueStl固有の設定
+WarningsAsErrors: ''
+HeaderFilterRegex: '^.*/include/bluestl/.*'
+AnalyzeTemporaryDtors: false
+FormatStyle: file
+User: BlueStl
+
+CheckOptions:
+  # C++20準拠設定
+  - key: modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key: modernize-loop-convert.NamingStyle
+    value: CamelCase
+  - key: modernize-pass-by-value.IncludeStyle
+    value: llvm
+  - key: modernize-replace-auto-ptr.IncludeStyle
+    value: llvm
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+
+  # 命名規則（STL風）
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.ClassCase
+    value: lower_case
+  - key: readability-identifier-naming.StructCase
+    value: lower_case
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: '_'
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: '_'
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.EnumConstantCase
+    value: lower_case
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: lower_case
+
+  # パフォーマンス設定
+  - key: performance-move-const-arg.CheckTriviallyCopyableMove
+    value: false
+  - key: performance-for-range-copy.WarnOnAllAutoCopies
+    value: true
+  - key: performance-inefficient-vector-operation.EnableProto
+    value: false
+
+  # 可読性設定
+  - key: readability-function-size.LineThreshold
+    value: 100
+  - key: readability-function-size.StatementThreshold
+    value: 50
+  - key: readability-function-size.BranchThreshold
+    value: 10
+  - key: readability-function-size.ParameterThreshold
+    value: 8
+  - key: readability-function-size.NestingThreshold
+    value: 5
+
+  # バグ防止設定
+  - key: bugprone-argument-comment.StrictMode
+    value: true
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: assert,BLUESTL_ASSERT
+  - key: bugprone-dangling-handle.HandleClasses
+    value: 'std::basic_string_view;std::experimental::basic_string_view;bluestl::string_view'
+  - key: bugprone-exception-escape.FunctionsThatShouldNotThrow
+    value: ''
+  - key: bugprone-exception-escape.IgnoredExceptions
+    value: ''
+
+  # モダンC++設定
+  - key: modernize-loop-convert.MaxCopySize
+    value: 16
+  - key: modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key: modernize-make-shared.MakeSmartPtrFunction
+    value: 'std::make_shared'
+  - key: modernize-make-shared.MakeSmartPtrFunctionHeader
+    value: 'memory'
+  - key: modernize-make-unique.MakeSmartPtrFunction
+    value: 'std::make_unique'
+  - key: modernize-make-unique.MakeSmartPtrFunctionHeader
+    value: 'memory'
+
+  # RAII/リソース管理
+  - key: cppcoreguidelines-owning-memory.LegacyResourceProducers
+    value: '::malloc;::aligned_alloc;::realloc;::calloc;::fopen;::freopen;::tmpfile'
+  - key: cppcoreguidelines-owning-memory.LegacyResourceConsumers
+    value: '::free;::realloc;::freopen;::fclose'

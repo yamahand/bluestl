@@ -688,3 +688,335 @@ TEST_CASE("bluestl::vector アロケータ", "[vector][allocator]") {
         REQUIRE(v2.get_allocator() == a);
     }
 }
+
+TEST_CASE("bluestl::vector エッジケース・境界値テスト", "[vector][edge_cases]") {
+    using bluestl::vector;
+
+    SECTION("サイズ0のベクタ") {
+        vector<int> v;
+        REQUIRE(v.empty());
+        REQUIRE(v.size() == 0);
+        REQUIRE(v.capacity() == 0);
+        REQUIRE(v.begin() == v.end());
+        REQUIRE(v.data() == nullptr);
+    }
+
+    SECTION("最大サイズの要素を1つ") {
+        vector<std::string> v;
+        std::string large_string(1000000, 'x');
+        v.push_back(large_string);
+        REQUIRE(v.size() == 1);
+        REQUIRE(v[0].size() == 1000000);
+    }
+
+    SECTION("範囲外アクセスのテスト準備（アサート発生を避けるため直接テストしない）") {
+        vector<int> v = {1, 2, 3};
+        
+        // 正常なアクセス範囲の確認
+        REQUIRE(v.at(0) == 1);
+        REQUIRE(v.at(2) == 3);
+        
+        // 範囲外アクセスは本来アサーションが発生するが、テストでは確認できない
+        // 代わりに、有効な範囲のテストのみ実行
+    }
+
+    SECTION("nullptrでの初期化") {
+        vector<int*> v;
+        v.push_back(nullptr);
+        REQUIRE(v.size() == 1);
+        REQUIRE(v[0] == nullptr);
+    }
+
+    SECTION("自己代入") {
+        vector<int> v = {1, 2, 3};
+        v = v; // 自己代入
+        REQUIRE(v.size() == 3);
+        REQUIRE(v[0] == 1);
+        REQUIRE(v[1] == 2);
+        REQUIRE(v[2] == 3);
+    }
+
+    SECTION("空のイテレータ範囲での構築") {
+        int* null_ptr = nullptr;
+        vector<int> v(null_ptr, null_ptr);
+        REQUIRE(v.empty());
+    }
+}
+
+TEST_CASE("bluestl::vector パフォーマンステスト", "[vector][performance]") {
+    using bluestl::vector;
+
+    SECTION("大量要素の挿入と削除") {
+        vector<int> v;
+        const int N = 100000;
+
+        // 大量push_back
+        for (int i = 0; i < N; ++i) {
+            v.push_back(i);
+        }
+        REQUIRE(v.size() == N);
+        REQUIRE(v[0] == 0);
+        REQUIRE(v[N-1] == N-1);
+
+        // 大量pop_back
+        for (int i = 0; i < N/2; ++i) {
+            v.pop_back();
+        }
+        REQUIRE(v.size() == N/2);
+        REQUIRE(v.back() == N/2 - 1);
+    }
+
+    SECTION("容量の事前予約によるパフォーマンス改善") {
+        vector<int> v1, v2;
+        const int N = 10000;
+
+        // 予約なしでの挿入
+        for (int i = 0; i < N; ++i) {
+            v1.push_back(i);
+        }
+
+        // 予約ありでの挿入
+        v2.reserve(N);
+        for (int i = 0; i < N; ++i) {
+            v2.push_back(i);
+        }
+
+        REQUIRE(v1.size() == N);
+        REQUIRE(v2.size() == N);
+        REQUIRE(v1 == v2);
+    }
+
+    SECTION("emplace_backとpush_backの比較") {
+        vector<std::string> v1, v2;
+        const int N = 1000;
+
+        // push_back（コピー）
+        for (int i = 0; i < N; ++i) {
+            std::string s = "test" + std::to_string(i);
+            v1.push_back(s);
+        }
+
+        // emplace_back（直接構築）
+        for (int i = 0; i < N; ++i) {
+            v2.emplace_back("test" + std::to_string(i));
+        }
+
+        REQUIRE(v1.size() == N);
+        REQUIRE(v2.size() == N);
+        // 内容が同じことを確認
+        for (int i = 0; i < N; ++i) {
+            REQUIRE(v1[i] == v2[i]);
+        }
+    }
+}
+
+TEST_CASE("bluestl::vector メモリ安全性テスト", "[vector][memory_safety]") {
+    using bluestl::vector;
+
+    SECTION("メモリリークテスト（RAII）") {
+        bool destroyed1 = false, destroyed2 = false, destroyed3 = false;
+        
+        {
+            vector<TestType> v;
+            v.emplace_back(1, &destroyed1);
+            v.emplace_back(2, &destroyed2);
+            v.emplace_back(3, &destroyed3);
+            
+            REQUIRE(!destroyed1);
+            REQUIRE(!destroyed2);
+            REQUIRE(!destroyed3);
+        } // ここでvのデストラクタが自動的に呼ばれる
+        
+        // すべての要素のデストラクタが呼ばれたことを確認
+        REQUIRE(destroyed1);
+        REQUIRE(destroyed2);
+        REQUIRE(destroyed3);
+    }
+
+    SECTION("resize時のメモリ管理") {
+        bool destroyed = false;
+        vector<TestType> v;
+        
+        v.emplace_back(42, &destroyed);
+        REQUIRE(!destroyed);
+        
+        // サイズを0にする
+        v.resize(0);
+        REQUIRE(destroyed); // デストラクタが呼ばれる
+        REQUIRE(v.empty());
+    }
+
+    SECTION("例外安全性（基本保証）") {
+        vector<TestType> v;
+        v.emplace_back(1);
+        v.emplace_back(2);
+        v.emplace_back(3);
+        
+        size_t original_size = v.size();
+        size_t original_capacity = v.capacity();
+        
+        // 操作が失敗しても既存の状態は保持される
+        try {
+            // 通常の操作（例外は発生しない）
+            v.push_back(TestType(4));
+            REQUIRE(v.size() == original_size + 1);
+        } catch (...) {
+            // 例外が発生した場合でも、元の状態は保持される
+            REQUIRE(v.size() == original_size);
+            REQUIRE(v.capacity() >= original_capacity);
+        }
+    }
+
+    SECTION("ダングリングポインタの回避") {
+        vector<int> v = {1, 2, 3, 4, 5};
+        int* ptr = &v[2]; // 3番目の要素へのポインタ
+        REQUIRE(*ptr == 3);
+        
+        // 容量変更を伴う操作
+        v.reserve(v.capacity() * 2);
+        
+        // ポインタが無効になった可能性があるため、
+        // インデックスベースでアクセスして確認
+        REQUIRE(v[2] == 3);
+    }
+}
+
+TEST_CASE("bluestl::vector 特殊型との互換性", "[vector][special_types]") {
+    using bluestl::vector;
+
+    SECTION("ムーブオンリー型") {
+        struct MoveOnly {
+            int value;
+            MoveOnly(int v) : value(v) {}
+            MoveOnly(const MoveOnly&) = delete;
+            MoveOnly& operator=(const MoveOnly&) = delete;
+            MoveOnly(MoveOnly&& other) noexcept : value(other.value) {
+                other.value = -1;
+            }
+            MoveOnly& operator=(MoveOnly&& other) noexcept {
+                value = other.value;
+                other.value = -1;
+                return *this;
+            }
+        };
+
+        vector<MoveOnly> v;
+        v.emplace_back(42);
+        v.push_back(MoveOnly(100));
+        
+        REQUIRE(v.size() == 2);
+        REQUIRE(v[0].value == 42);
+        REQUIRE(v[1].value == 100);
+    }
+
+    SECTION("const型") {
+        vector<const int> v;
+        v.push_back(1);
+        v.push_back(2);
+        v.push_back(3);
+        
+        REQUIRE(v.size() == 3);
+        REQUIRE(v[0] == 1);
+        REQUIRE(v[1] == 2);
+        REQUIRE(v[2] == 3);
+    }
+
+    SECTION("ポインタ型") {
+        int a = 1, b = 2, c = 3;
+        vector<int*> v;
+        v.push_back(&a);
+        v.push_back(&b);
+        v.push_back(&c);
+        
+        REQUIRE(v.size() == 3);
+        REQUIRE(*v[0] == 1);
+        REQUIRE(*v[1] == 2);
+        REQUIRE(*v[2] == 3);
+    }
+}
+
+TEST_CASE("bluestl::vector 高度なイテレータテスト", "[vector][iterators]") {
+    using bluestl::vector;
+
+    SECTION("イテレータの無効化") {
+        vector<int> v = {1, 2, 3};
+        auto it = v.begin();
+        auto end_it = v.end();
+        
+        REQUIRE(*it == 1);
+        
+        // 容量を変更しない操作ではイテレータは有効
+        v.push_back(4);
+        if (v.capacity() > 3) {
+            // 容量が変更されていない場合のみテスト
+            // 注意：実装によっては容量が変更される可能性がある
+        }
+    }
+
+    SECTION("逆イテレータの完全テスト") {
+        vector<int> v = {1, 2, 3, 4, 5};
+        
+        // 逆イテレータでの範囲アクセス
+        std::string result;
+        for (auto rit = v.rbegin(); rit != v.rend(); ++rit) {
+            result += std::to_string(*rit);
+        }
+        REQUIRE(result == "54321");
+        
+        // const逆イテレータ
+        const vector<int>& cv = v;
+        result.clear();
+        for (auto crit = cv.crbegin(); crit != cv.crend(); ++crit) {
+            result += std::to_string(*crit);
+        }
+        REQUIRE(result == "54321");
+    }
+
+    SECTION("イテレータ演算") {
+        vector<int> v = {10, 20, 30, 40, 50};
+        auto it = v.begin();
+        
+        // 前進
+        REQUIRE(*it == 10);
+        ++it;
+        REQUIRE(*it == 20);
+        it += 2;
+        REQUIRE(*it == 40);
+        
+        // 後退
+        --it;
+        REQUIRE(*it == 30);
+        it -= 1;
+        REQUIRE(*it == 20);
+        
+        // 距離計算
+        auto distance = v.end() - v.begin();
+        REQUIRE(distance == 5);
+        
+        // 比較
+        REQUIRE(v.begin() < v.end());
+        REQUIRE(v.begin() <= v.begin());
+        REQUIRE(v.end() > v.begin());
+        REQUIRE(v.end() >= v.end());
+    }
+}
+
+TEST_CASE("bluestl::vector メモリアライメントテスト", "[vector][alignment]") {
+    using bluestl::vector;
+
+    SECTION("アライメント要求の厳しい型") {
+        struct AlignedType {
+            alignas(64) double data[8];
+            AlignedType() { std::fill(data, data + 8, 0.0); }
+        };
+
+        vector<AlignedType> v;
+        v.resize(10);
+        
+        // アライメントが正しいことを確認
+        for (size_t i = 0; i < v.size(); ++i) {
+            auto addr = reinterpret_cast<uintptr_t>(&v[i]);
+            REQUIRE(addr % 64 == 0);
+        }
+    }
+}

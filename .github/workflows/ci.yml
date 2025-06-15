@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        compiler: [gcc, clang]
+        exclude:
+          - os: windows-latest
+            compiler: gcc
+        include:
+          - os: windows-latest
+            compiler: msvc
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup C++ (Linux/macOS GCC)
+      if: matrix.os != 'windows-latest' && matrix.compiler == 'gcc'
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo apt-get update
+          sudo apt-get install -y gcc-11 g++-11
+          echo "CC=gcc-11" >> $GITHUB_ENV
+          echo "CXX=g++-11" >> $GITHUB_ENV
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          brew install gcc@11
+          echo "CC=gcc-11" >> $GITHUB_ENV
+          echo "CXX=g++-11" >> $GITHUB_ENV
+        fi
+
+    - name: Setup C++ (Linux/macOS Clang)
+      if: matrix.os != 'windows-latest' && matrix.compiler == 'clang'
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo apt-get update
+          sudo apt-get install -y clang-15
+          echo "CC=clang-15" >> $GITHUB_ENV
+          echo "CXX=clang++-15" >> $GITHUB_ENV
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+        fi
+
+    - name: Setup MSVC (Windows)
+      if: matrix.os == 'windows-latest' && matrix.compiler == 'msvc'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Test
+      working-directory: build
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./Release/test_all.exe || ./test_all.exe
+        else
+          ./test_all
+        fi
+      shell: bash
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format clang-tidy cppcheck
+
+    - name: Check code formatting
+      run: |
+        find include tests -name "*.h" -o -name "*.cpp" | xargs clang-format --dry-run --Werror
+
+    - name: Run static analysis
+      run: |
+        ./scripts/static_analysis.sh --no-clang-tidy
+        
+    - name: Run clang-tidy analysis
+      run: |
+        find include/bluestl -name "*.h" -exec clang-tidy {} --config-file=.clang-tidy --header-filter=".*include/bluestl.*" -- -std=c++20 -Iinclude \;
+
+    - name: Upload static analysis reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: static-analysis-reports
+        path: static_analysis_reports/
