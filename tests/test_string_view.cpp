@@ -273,7 +273,7 @@ TEST_CASE("string_view find operations", "[string_view][find]") {
 
     SECTION("rfind character") {
         REQUIRE(sv.rfind('h') == 12);
-        REQUIRE(sv.rfind('o') == 15);
+        REQUIRE(sv.rfind('o') == 16);  // Last 'o' is at position 16
         REQUIRE(sv.rfind('x') == bluestl::string_view::npos);
         REQUIRE(sv.rfind('h', 5) == 0);
     }
