@@ -711,11 +711,11 @@ TEST_CASE("bluestl::vector エッジケース・境界値テスト", "[vector][e
 
     SECTION("範囲外アクセスのテスト準備（アサート発生を避けるため直接テストしない）") {
         vector<int> v = {1, 2, 3};
-        
+
         // 正常なアクセス範囲の確認
         REQUIRE(v.at(0) == 1);
         REQUIRE(v.at(2) == 3);
-        
+
         // 範囲外アクセスは本来アサーションが発生するが、テストでは確認できない
         // 代わりに、有効な範囲のテストのみ実行
     }
@@ -815,18 +815,18 @@ TEST_CASE("bluestl::vector メモリ安全性テスト", "[vector][memory_safety
 
     SECTION("メモリリークテスト（RAII）") {
         bool destroyed1 = false, destroyed2 = false, destroyed3 = false;
-        
+
         {
             vector<TestType> v;
             v.emplace_back(1, &destroyed1);
             v.emplace_back(2, &destroyed2);
             v.emplace_back(3, &destroyed3);
-            
+
             REQUIRE(!destroyed1);
             REQUIRE(!destroyed2);
             REQUIRE(!destroyed3);
         } // ここでvのデストラクタが自動的に呼ばれる
-        
+
         // すべての要素のデストラクタが呼ばれたことを確認
         REQUIRE(destroyed1);
         REQUIRE(destroyed2);
@@ -836,10 +836,10 @@ TEST_CASE("bluestl::vector メモリ安全性テスト", "[vector][memory_safety
     SECTION("resize時のメモリ管理") {
         bool destroyed = false;
         vector<TestType> v;
-        
+
         v.emplace_back(42, &destroyed);
         REQUIRE(!destroyed);
-        
+
         // サイズを0にする
         v.resize(0);
         REQUIRE(destroyed); // デストラクタが呼ばれる
@@ -851,10 +851,10 @@ TEST_CASE("bluestl::vector メモリ安全性テスト", "[vector][memory_safety
         v.emplace_back(1);
         v.emplace_back(2);
         v.emplace_back(3);
-        
+
         size_t original_size = v.size();
         size_t original_capacity = v.capacity();
-        
+
         // 操作が失敗しても既存の状態は保持される
         try {
             // 通常の操作（例外は発生しない）
@@ -871,10 +871,10 @@ TEST_CASE("bluestl::vector メモリ安全性テスト", "[vector][memory_safety
         vector<int> v = {1, 2, 3, 4, 5};
         int* ptr = &v[2]; // 3番目の要素へのポインタ
         REQUIRE(*ptr == 3);
-        
+
         // 容量変更を伴う操作
         v.reserve(v.capacity() * 2);
-        
+
         // ポインタが無効になった可能性があるため、
         // インデックスベースでアクセスして確認
         REQUIRE(v[2] == 3);
@@ -903,7 +903,7 @@ TEST_CASE("bluestl::vector 特殊型との互換性", "[vector][special_types]")
         vector<MoveOnly> v;
         v.emplace_back(42);
         v.push_back(MoveOnly(100));
-        
+
         REQUIRE(v.size() == 2);
         REQUIRE(v[0].value == 42);
         REQUIRE(v[1].value == 100);
@@ -914,7 +914,7 @@ TEST_CASE("bluestl::vector 特殊型との互換性", "[vector][special_types]")
     //     v.push_back(1);
     //     v.push_back(2);
     //     v.push_back(3);
-    //     
+    //
     //     REQUIRE(v.size() == 3);
     //     REQUIRE(v[0] == 1);
     //     REQUIRE(v[1] == 2);
@@ -927,7 +927,7 @@ TEST_CASE("bluestl::vector 特殊型との互換性", "[vector][special_types]")
         v.push_back(&a);
         v.push_back(&b);
         v.push_back(&c);
-        
+
         REQUIRE(v.size() == 3);
         REQUIRE(*v[0] == 1);
         REQUIRE(*v[1] == 2);
@@ -942,9 +942,9 @@ TEST_CASE("bluestl::vector 高度なイテレータテスト", "[vector][iterato
         vector<int> v = {1, 2, 3};
         auto it = v.begin();
         auto end_it = v.end();
-        
+
         REQUIRE(*it == 1);
-        
+
         // 容量を変更しない操作ではイテレータは有効
         v.push_back(4);
         if (v.capacity() > 3) {
@@ -955,14 +955,14 @@ TEST_CASE("bluestl::vector 高度なイテレータテスト", "[vector][iterato
 
     SECTION("逆イテレータの完全テスト") {
         vector<int> v = {1, 2, 3, 4, 5};
-        
+
         // 逆イテレータでの範囲アクセス
         std::string result;
         for (auto rit = v.rbegin(); rit != v.rend(); ++rit) {
             result += std::to_string(*rit);
         }
         REQUIRE(result == "54321");
-        
+
         // const逆イテレータ
         const vector<int>& cv = v;
         result.clear();
@@ -975,24 +975,24 @@ TEST_CASE("bluestl::vector 高度なイテレータテスト", "[vector][iterato
     SECTION("イテレータ演算") {
         vector<int> v = {10, 20, 30, 40, 50};
         auto it = v.begin();
-        
+
         // 前進
         REQUIRE(*it == 10);
         ++it;
         REQUIRE(*it == 20);
         it += 2;
         REQUIRE(*it == 40);
-        
+
         // 後退
         --it;
         REQUIRE(*it == 30);
         it -= 1;
         REQUIRE(*it == 20);
-        
+
         // 距離計算
         auto distance = v.end() - v.begin();
         REQUIRE(distance == 5);
-        
+
         // 比較
         REQUIRE(v.begin() < v.end());
         REQUIRE(v.begin() <= v.begin());
@@ -1006,20 +1006,20 @@ TEST_CASE("bluestl::vector メモリアライメントテスト", "[vector][alig
 
     // Temporarily disabled due to allocator alignment issues
     // TODO: Fix allocator to properly handle over-aligned types
-    
-    // SECTION("アライメント要求の厳しい型") {
-    //     struct AlignedType {
-    //         alignas(64) double data[8];
-    //         AlignedType() { std::fill(data, data + 8, 0.0); }
-    //     };
 
-    //     vector<AlignedType> v;
-    //     v.resize(10);
-    //     
-    //     // アライメントが正しいことを確認
-    //     for (size_t i = 0; i < v.size(); ++i) {
-    //         auto addr = reinterpret_cast<uintptr_t>(&v[i]);
-    //         REQUIRE(addr % 64 == 0);
-    //     }
-    // }
+    SECTION("アライメント要求の厳しい型") {
+        struct AlignedType {
+            alignas(64) double data[8];
+            AlignedType() { std::fill(data, data + 8, 0.0); }
+        };
+
+        vector<AlignedType> v;
+        v.resize(10);
+
+        // アライメントが正しいことを確認
+        for (size_t i = 0; i < v.size(); ++i) {
+            auto addr = reinterpret_cast<uintptr_t>(&v[i]);
+            REQUIRE(addr % 64 == 0);
+        }
+    }
 }

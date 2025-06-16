@@ -11,6 +11,10 @@
 
 #if defined(_WIN32) && defined(_MSC_VER)
 #include <malloc.h> // _aligned_malloc, _aligned_free
+#else
+#include <cstdlib>  // posix_memalign, aligned_alloc
+// POSIX環境でposix_memalignの宣言を確実にする
+extern "C" int posix_memalign(void **memptr, size_t alignment, size_t size);
 #endif
 
 namespace bluestl {
@@ -56,7 +60,15 @@ class allocator {
              BLUESTL_ASSERT(false);
              return nullptr;
         }
+
         size_t bytes = n * sizeof(T);
+        size_t alignment = alignof(T);
+
+        // 標準アライメント（通常8バイト）を超える場合はアライメント指定メモリ確保を使用
+        if (alignment > alignof(std::max_align_t)) {
+            return allocate_aligned(n, alignment);
+        }
+
         pointer p = static_cast<pointer>(std::malloc(bytes));
         if (!p) {
             BLUESTL_LOG_ERROR("allocator: Failed to allocate %zu bytes.\\n", bytes);
@@ -80,13 +92,16 @@ class allocator {
             BLUESTL_LOG_ERROR("allocator: Invalid alignment: %zu (must be power of 2)\\n", alignment);
             BLUESTL_ASSERT(false);
             return nullptr;
-        }
-
-        size_t bytes = n * sizeof(T);
+        }        size_t bytes = n * sizeof(T);
 
         // アライメントがsizeof(T)未満の場合はデフォルトのアライメントを使用
         if (alignment < alignof(T)) {
             alignment = alignof(T);
+        }
+
+        // バイト数をアライメントの倍数に調整（一部のアライメント関数で必要）
+        if (bytes % alignment != 0) {
+            bytes = ((bytes + alignment - 1) / alignment) * alignment;
         }
 
 #if defined(_WIN32) && defined(_MSC_VER)
@@ -120,9 +135,18 @@ class allocator {
     }    // メモリ解放
     void deallocate(pointer p, size_type n) noexcept {
         if (!p) return;
+
         size_t bytes = n * sizeof(T); // デバッグ用にサイズを計算
+        size_t alignment = alignof(T);
+
         BLUESTL_LOG_DEBUG("allocator: Deallocating %zu bytes at %p (%zu elements).\\n", bytes, static_cast<void*>(p), n);
-        std::free(p);
+
+        // 標準アライメントを超える場合はアライメント指定解放を使用
+        if (alignment > alignof(std::max_align_t)) {
+            deallocate_aligned(p, n);
+        } else {
+            std::free(p);
+        }
     }
 
     // アライメント指定メモリ解放
