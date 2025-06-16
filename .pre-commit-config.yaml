@@ -1,0 +1,120 @@
+# BlueStl Pre-commit hooks configuration
+# 静的解析とコード品質チェックを自動実行
+
+repos:
+  # コードフォーマッター
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-xml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # C++ コードフォーマッター
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-format
+        args: [--style=file, --fallback-style=none]
+        files: '\.(cpp|hpp|cc|cxx|c|h)$'
+
+  # clang-tidy 静的解析
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-tidy
+        args: [
+          --config-file=.clang-tidy,
+          --header-filter=.*include/bluestl.*,
+          --,
+          -std=c++20,
+          -Iinclude
+        ]
+        files: 'include/bluestl/.*\.h$'
+
+  # cppcheck 静的解析
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: cppcheck
+        args: [
+          --enable=all,
+          --std=c++20,
+          --suppress=missingIncludeSystem,
+          --suppress=unusedFunction,
+          --suppress=unmatchedSuppression,
+          --suppress=noExplicitConstructor,
+          --suppress=passedByValue,
+          --suppress=useStlAlgorithm,
+          --inline-suppr,
+          --template={file}:{line} ({severity}) {id}: {message},
+          -Iinclude
+        ]
+        files: 'include/bluestl/.*\.h$'
+
+  # ローカル hooks (カスタム静的解析)
+  - repo: local
+    hooks:
+      # BlueStl固有の静的解析チェック
+      - id: bluestl-static-analysis
+        name: BlueStl Static Analysis
+        entry: scripts/pre_commit_static_analysis.sh
+        language: script
+        files: 'include/bluestl/.*\.h$'
+        pass_filenames: true
+        description: 'Run BlueStl-specific static analysis checks'
+        
+      # ヘッダファイルのinclude guard チェック
+      - id: include-guards
+        name: Check Include Guards
+        entry: scripts/check_include_guards.sh
+        language: script
+        files: 'include/bluestl/.*\.h$'
+        pass_filenames: true
+        description: 'Verify include guards in header files'
+        
+      # C++20機能の使用チェック
+      - id: cpp20-compliance
+        name: C++20 Compliance Check
+        entry: scripts/check_cpp20_compliance.sh
+        language: script
+        files: 'include/bluestl/.*\.h$'
+        pass_filenames: true
+        description: 'Check for C++20 compliance and modern C++ usage'
+
+  # コミットメッセージの検証
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.13.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  # Markdown lint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        args: [--config=.markdownlint.yaml]
+        files: '\.md$'
+
+# フックの設定
+default_stages: [commit]
+fail_fast: false
+
+# 除外パターン
+exclude: |
+  (?x)^(
+    build/.*|
+    .*/build/.*|
+    static_analysis_reports/.*|
+    docs/generated/.*|
+    third_party/.*
+  )$

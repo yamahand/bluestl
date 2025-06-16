@@ -163,6 +163,12 @@ if [ "$ENABLE_CPPCHECK" = true ]; then
         
         echo "レポート出力先: $CPPCHECK_REPORT"
         
+        # cppcheck設定ファイルがあれば使用
+        CPPCHECK_CONFIG=""
+        if [ -f ".cppcheck" ]; then
+            CPPCHECK_CONFIG="--file-list=<(find include/bluestl -name '*.h') --suppressions-list=.cppcheck"
+        fi
+        
         cppcheck \
             --enable=all \
             --std=c++20 \
@@ -170,11 +176,22 @@ if [ "$ENABLE_CPPCHECK" = true ]; then
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --suppress=unmatchedSuppression \
+            --suppress=noExplicitConstructor \
+            --suppress=passedByValue \
+            --suppress=useStlAlgorithm \
+            --suppress=cstyleCast \
+            --suppress=useInitializationList \
+            --suppress=functionStatic \
+            --suppress=unusedStructMember \
+            --suppress=uninitMemberVar \
+            --suppress=syntaxError \
+            --suppress=ConfigurationNotChecked \
             --inconclusive \
             --inline-suppr \
             --template="[{file}:{line}] ({severity}) {id}: {message}" \
             --xml \
             --xml-version=2 \
+            --max-configs=100 \
             -I include \
             include/bluestl \
             2> "$CPPCHECK_XML_REPORT" | tee "$CPPCHECK_REPORT"

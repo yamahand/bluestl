@@ -1,0 +1,56 @@
+# Clang Static Analyzer configuration for BlueStl
+# クラングスタティックアナライザー用設定ファイル
+
+# 基本設定
+checks:
+  - core.*
+  - cplusplus.*
+  - deadcode.*
+  - security.*
+  - unix.*
+  - alpha.core.*
+  - alpha.cplusplus.*
+  - alpha.deadcode.*
+  - alpha.security.*
+
+# 除外チェック
+disabled_checks:
+  - alpha.clone.*
+  - alpha.cplusplus.InvalidatedIterator
+  - alpha.security.ArrayBoundV2
+  - alpha.unix.*
+
+# BlueStl固有設定
+analyze_headers: true
+analyze_temp_dtors: false
+
+# 出力形式
+output_format: plist-multi-file
+
+# 最大深度
+max_loop: 4
+max_recursion: 4
+
+# メモリ管理チェック
+memory_checks:
+  - leak
+  - use_after_free
+  - double_free
+  - invalid_free
+
+# C++固有チェック
+cpp_checks:
+  - new_delete_mismatch
+  - virtual_call
+  - this_null_dereference
+
+# セキュリティチェック
+security_checks:
+  - buffer_overflow
+  - tainted_data
+  - format_string
+
+# パフォーマンスチェック
+performance_checks:
+  - string_concat
+  - inefficient_algorithm

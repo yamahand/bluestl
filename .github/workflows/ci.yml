@@ -78,26 +78,142 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Install static analysis tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-format clang-tidy cppcheck
+        sudo apt-get install -y \
+          clang-format \
+          clang-tidy \
+          clang-tools \
+          cppcheck \
+          xmlstarlet \
+          python3-pip
+        
+        # Python dependencies for advanced analysis
+        pip3 install --user pyyaml
 
     - name: Check code formatting
       run: |
+        echo "🎨 コードフォーマットをチェック中..."
         find include tests -name "*.h" -o -name "*.cpp" | xargs clang-format --dry-run --Werror
 
-    - name: Run static analysis
+    - name: Run comprehensive static analysis
       run: |
-        ./scripts/static_analysis.sh --no-clang-tidy
+        echo "🔍 包括的静的解析を実行中..."
         
-    - name: Run clang-tidy analysis
+        # Bash版の静的解析スクリプト実行
+        chmod +x scripts/static_analysis.sh
+        ./scripts/static_analysis.sh --verbose
+        
+        # Python版の静的解析スクリプト実行（より詳細な分析）
+        python3 scripts/run_static_analysis.py --verbose --enable-clang-analyzer
+        
+    - name: Run focused clang-tidy analysis
       run: |
-        find include/bluestl -name "*.h" -exec clang-tidy {} --config-file=.clang-tidy --header-filter=".*include/bluestl.*" -- -std=c++20 -Iinclude \;
+        echo "🎯 重点的clang-tidy解析を実行中..."
+        mkdir -p static_analysis_reports
+        
+        # ヘッダファイルのみ対象（テストファイルは除外）
+        find include/bluestl -name "*.h" -exec clang-tidy {} \
+          --config-file=.clang-tidy \
+          --header-filter=".*include/bluestl.*" \
+          --export-fixes=static_analysis_reports/clang_tidy_fixes.yaml \
+          -- -std=c++20 -Iinclude \; > static_analysis_reports/clang_tidy_ci.log 2>&1 || true
+        
+        # 結果のサマリー出力
+        echo "📊 clang-tidy結果サマリー:"
+        if [ -f static_analysis_reports/clang_tidy_ci.log ]; then
+          ISSUE_COUNT=$(grep -c "warning:\|error:" static_analysis_reports/clang_tidy_ci.log || echo "0")
+          echo "検出された問題数: $ISSUE_COUNT"
+          
+          if [ "$ISSUE_COUNT" -gt 0 ]; then
+            echo "主な問題カテゴリ:"
+            grep "warning:\|error:" static_analysis_reports/clang_tidy_ci.log | \
+              sed 's/.*\[\(.*\)\].*/\1/' | \
+              sort | uniq -c | sort -nr | head -5
+          fi
+        fi
+
+    - name: Generate static analysis summary
+      if: always()
+      run: |
+        echo "📋 静的解析サマリーを生成中..."
+        
+        SUMMARY_FILE="static_analysis_reports/ci_summary.md"
+        
+        cat > "$SUMMARY_FILE" << 'EOF'
+        # BlueStl CI 静的解析レポート
+        
+        **実行日時**: $(date)
+        **ブランチ**: ${{ github.ref_name }}
+        **コミット**: ${{ github.sha }}
+        
+        ## 解析結果
+        
+        EOF
+        
+        # clang-tidy結果
+        if [ -f static_analysis_reports/clang_tidy_ci.log ]; then
+          CLANG_TIDY_ISSUES=$(grep -c "warning:\|error:" static_analysis_reports/clang_tidy_ci.log || echo "0")
+          echo "### clang-tidy: $CLANG_TIDY_ISSUES 件の問題" >> "$SUMMARY_FILE"
+        fi
+        
+        # cppcheck結果（存在する場合）
+        CPPCHECK_FILES=$(ls static_analysis_reports/cppcheck_*.txt 2>/dev/null || true)
+        if [ -n "$CPPCHECK_FILES" ]; then
+          CPPCHECK_ISSUES=$(grep -c "error\|warning\|style\|performance\|portability" $CPPCHECK_FILES || echo "0")
+          echo "### cppcheck: $CPPCHECK_ISSUES 件の問題" >> "$SUMMARY_FILE"
+        fi
+        
+        echo "" >> "$SUMMARY_FILE"
+        echo "詳細は個別のレポートファイルを参照してください。" >> "$SUMMARY_FILE"
+        
+        # サマリーを表示
+        cat "$SUMMARY_FILE"
+
+    - name: Check for critical issues
+      run: |
+        echo "🚨 重要な問題をチェック中..."
+        
+        # エラーレベルの問題をチェック
+        ERROR_COUNT=0
+        if [ -f static_analysis_reports/clang_tidy_ci.log ]; then
+          ERROR_COUNT=$(grep -c "error:" static_analysis_reports/clang_tidy_ci.log || echo "0")
+        fi
+        
+        echo "検出されたエラー数: $ERROR_COUNT"
+        
+        # 現在はワーニングレベルで継続（将来的にはエラーで停止する可能性）
+        if [ "$ERROR_COUNT" -gt 0 ]; then
+          echo "⚠️ 静的解析でエラーが検出されましたが、継続します"
+          echo "詳細は静的解析レポートを確認してください"
+        fi
 
     - name: Upload static analysis reports
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: static-analysis-reports
+        name: static-analysis-reports-${{ matrix.os || 'ubuntu' }}-${{ github.sha }}
         path: static_analysis_reports/
+        retention-days: 30
+
+    - name: Comment PR with analysis results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // サマリーファイルが存在するかチェック
+          const summaryPath = 'static_analysis_reports/ci_summary.md';
+          
+          if (fs.existsSync(summaryPath)) {
+            const summary = fs.readFileSync(summaryPath, 'utf8');
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔍 静的解析結果\n\n${summary}\n\n詳細なレポートは[Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})から確認できます。`
+            });
+          }

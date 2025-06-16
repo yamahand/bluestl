@@ -1,0 +1,43 @@
+# Cppcheck configuration file for BlueStl
+# 静的解析ツールcppcheck用設定ファイル
+
+# チェックレベル設定
+enable=warning,style,performance,portability,information,missingInclude
+
+# 除外するチェック
+suppress=missingIncludeSystem
+suppress=unmatchedSuppression
+suppress=unusedFunction:tests/*
+suppress=unusedFunction:benchmarks/*
+suppress=noExplicitConstructor
+suppress=passedByValue
+suppress=useStlAlgorithm
+
+# インクルードパス設定
+addons=cert,misra
+
+# BlueStl固有の抑制
+suppress=cstyleCast:include/bluestl/allocator.h
+suppress=cstyleCast:include/bluestl/hash_map.h
+suppress=useInitializationList:include/bluestl/*
+
+# テンプレート関連の誤検知抑制
+suppress=functionStatic:include/bluestl/*
+suppress=unusedStructMember:include/bluestl/*
+suppress=passedByValue:include/bluestl/*
+
+# アライメント関連
+suppress=uninitMemberVar:include/bluestl/allocator.h
+
+# C++20機能関連
+suppress=syntaxError:include/bluestl/variant.h
+suppress=syntaxError:include/bluestl/optional.h
+
+# プラットフォーム固有コード
+suppress=ConfigurationNotChecked
+
+# エラー出力形式
+template=gcc
+
+# 最大エラー数
+max-configs=100

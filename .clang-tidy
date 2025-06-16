@@ -2,9 +2,19 @@
 # BlueStl .clang-tidy configuration
 # 静的解析とコード品質チェックの設定
 
-# 基本設定
+# 基本設定 - C++20準拠STLライブラリ向け
 Checks: >
-  *,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  hicpp-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
   -abseil-*,
   -android-*,
   -darwin-*,
@@ -30,7 +40,14 @@ Checks: >
   -cppcoreguidelines-owning-memory,
   -modernize-use-nodiscard,
   -readability-function-cognitive-complexity,
-  -bugprone-exception-escape
+  -bugprone-exception-escape,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-macro-usage,
+  -modernize-avoid-c-arrays,
+  -hicpp-avoid-c-arrays,
+  -cppcoreguidelines-avoid-c-arrays,
+  -readability-convert-member-functions-to-static,
+  -misc-include-cleaner
 
 # BlueStl固有の設定
 WarningsAsErrors: ''

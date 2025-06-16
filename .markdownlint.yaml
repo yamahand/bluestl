@@ -1,0 +1,38 @@
+# Markdownlint configuration for BlueStl
+# Markdown文書の品質チェック設定
+
+# デフォルトルールを有効化
+default: true
+
+# 個別ルール設定
+rules:
+  # 行の長さ制限を緩和
+  MD013:
+    line_length: 120
+    code_blocks: false
+    tables: false
+    headings: false
+    
+  # インラインHTMLを許可（GitHub形式）
+  MD033: false
+  
+  # 重複する見出しを許可
+  MD024: false
+  
+  # 順序なしリストのマーカー統一
+  MD004:
+    style: dash
+    
+  # 順序ありリストの番号形式
+  MD029:
+    style: ordered
+    
+  # 空行のルール調整
+  MD012:
+    maximum: 2
+    
+  # ファイル末尾の空行
+  MD047: true
+  
+  # リンクの重複チェックを無効化（アンカーリンクで多発するため）
+  MD034: false
