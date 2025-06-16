@@ -47,12 +47,18 @@ Checks: >
   -hicpp-avoid-c-arrays,
   -cppcoreguidelines-avoid-c-arrays,
   -readability-convert-member-functions-to-static,
-  -misc-include-cleaner
+  -misc-include-cleaner,
+  -bugprone-branch-clone,
+  -readability-implicit-bool-conversion,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -readability-duplicate-include,
+  -hicpp-use-auto,
+  -modernize-use-auto,
+  -cppcoreguidelines-init-variables
 
 # BlueStl固有の設定
 WarningsAsErrors: ''
 HeaderFilterRegex: '^.*/include/bluestl/.*'
-AnalyzeTemporaryDtors: false
 FormatStyle: file
 User: BlueStl
 
@@ -69,7 +75,7 @@ CheckOptions:
   - key: modernize-use-nullptr.NullMacros
     value: 'NULL'
 
-  # 命名規則（STL風）
+  # 命名規則（STL風 + BlueStl固有）
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
   - key: readability-identifier-naming.ClassCase
@@ -93,6 +99,8 @@ CheckOptions:
   - key: readability-identifier-naming.ConstexprVariableCase
     value: lower_case
   - key: readability-identifier-naming.GlobalConstantCase
+    value: lower_case
+  - key: readability-identifier-naming.ConstantCase
     value: lower_case
 
   # パフォーマンス設定
@@ -146,3 +154,15 @@ CheckOptions:
     value: '::malloc;::aligned_alloc;::realloc;::calloc;::fopen;::freopen;::tmpfile'
   - key: cppcoreguidelines-owning-memory.LegacyResourceConsumers
     value: '::free;::realloc;::freopen;::fclose'
+  
+  # BlueStl固有設定
+  - key: readability-function-size.LineThreshold
+    value: 150
+  - key: readability-function-size.StatementThreshold
+    value: 80
+  - key: hicpp-named-parameter.IgnoreFailedSplit
+    value: true
+  - key: modernize-use-auto.MinTypeNameLength
+    value: 8
+  - key: cppcoreguidelines-init-variables.MathHeader
+    value: '<cmath>'

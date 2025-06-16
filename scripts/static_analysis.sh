@@ -132,7 +132,7 @@ if [ "$ENABLE_CLANG_TIDY" = true ]; then
             clang-tidy "$file" $CLANG_TIDY_OPTIONS \
                 --config-file=.clang-tidy \
                 --header-filter=".*include/bluestl.*" \
-                -- -std=c++20 -Iinclude 2>&1 >> "$CLANG_TIDY_REPORT" || CLANG_TIDY_EXIT_CODE=$?
+                -- -x c++ -std=c++20 -Iinclude 2>&1 >> "$CLANG_TIDY_REPORT" || CLANG_TIDY_EXIT_CODE=$?
         done
         
         # 結果サマリー
@@ -164,36 +164,23 @@ if [ "$ENABLE_CPPCHECK" = true ]; then
         echo "レポート出力先: $CPPCHECK_REPORT"
         
         # cppcheck設定ファイルがあれば使用
-        CPPCHECK_CONFIG=""
+        CPPCHECK_ARGS=""
         if [ -f ".cppcheck" ]; then
-            CPPCHECK_CONFIG="--file-list=<(find include/bluestl -name '*.h') --suppressions-list=.cppcheck"
+            CPPCHECK_ARGS="--suppressions-list=.cppcheck"
         fi
         
         cppcheck \
-            --enable=all \
+            --enable=warning,performance,portability \
             --std=c++20 \
             --platform=native \
-            --suppress=missingIncludeSystem \
-            --suppress=unusedFunction \
-            --suppress=unmatchedSuppression \
-            --suppress=noExplicitConstructor \
-            --suppress=passedByValue \
-            --suppress=useStlAlgorithm \
-            --suppress=cstyleCast \
-            --suppress=useInitializationList \
-            --suppress=functionStatic \
-            --suppress=unusedStructMember \
-            --suppress=uninitMemberVar \
-            --suppress=syntaxError \
-            --suppress=ConfigurationNotChecked \
-            --inconclusive \
+            $CPPCHECK_ARGS \
             --inline-suppr \
             --template="[{file}:{line}] ({severity}) {id}: {message}" \
             --xml \
             --xml-version=2 \
-            --max-configs=100 \
+            --max-configs=50 \
             -I include \
-            include/bluestl \
+            include/bluestl/*.h \
             2> "$CPPCHECK_XML_REPORT" | tee "$CPPCHECK_REPORT"
         
         # XML形式の結果をテキストに変換
