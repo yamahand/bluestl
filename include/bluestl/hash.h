@@ -109,7 +109,7 @@ template <std::size_t Capacity>
 class fixed_string;
 
 template <std::size_t Capacity>
-constexpr hash_default_t hash(const fixed_string<Capacity>& value) noexcept {
+constexpr hash_default_t hash_fixed_string(const fixed_string<Capacity>& value) noexcept {
 #if BLUESTL_HASH_ALGO == fnv1a
     return fnv1a_hash(value.data(), value.size());
 #elif BLUESTL_HASH_ALGO == xx
@@ -118,5 +118,19 @@ constexpr hash_default_t hash(const fixed_string<Capacity>& value) noexcept {
     return murmur3_32(value.data(), value.size());
 #endif
 }
+
+/**
+ * @brief ハッシュ関数オブジェクトのテンプレート
+ */
+template <typename T>
+struct hash_fn {
+    constexpr std::size_t operator()(const T& value) const noexcept {
+        return static_cast<std::size_t>(bluestl::hash(value));
+    }
+};
+
+// std::hash 風の alias (関数名との衝突を避けるため、hasher という名前を使用)
+template <typename T>
+using hasher = hash_fn<T>;
 
 }  // namespace bluestl

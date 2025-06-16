@@ -48,9 +48,9 @@ struct TestType {
 
 // TestType用のハッシュ関数特殊化
 template<>
-struct bluestl::hash<TestType> {
+struct bluestl::hash_fn<TestType> {
     std::size_t operator()(const TestType& t) const noexcept {
-        return bluestl::hash<int>{}(t.value);
+        return bluestl::hasher<int>{}(t.value);
     }
 };
 
@@ -488,13 +488,17 @@ TEST_CASE("bluestl::hash_map 文字列キー", "[hash_map]") {
     
     SECTION("空文字列") {
         map.insert({"", 0});
-        REQUIRE(map.find("")->second == 0);
+        auto it = map.find("");
+        REQUIRE(it != map.end());
+        REQUIRE(it->second == 0);
         REQUIRE(map.size() == 1);
     }
     
     SECTION("長い文字列") {
         std::string long_key(1000, 'a');
         map.insert({long_key, 999});
-        REQUIRE(map.find(long_key)->second == 999);
+        auto it = map.find(long_key);
+        REQUIRE(it != map.end());
+        REQUIRE(it->second == 999);
     }
 }

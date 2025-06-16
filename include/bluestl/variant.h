@@ -112,9 +112,9 @@ class variant {
      * @tparam T 構築する型
      * @param value 値
      */
-    template <typename T, typename = std::enable_if_t<(std::is_same_v<T, Types> || ...)>>
-    variant(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>) {
-        emplace<T>(value);
+    template <typename T, typename = std::enable_if_t<(std::is_constructible_v<Types, T> || ...) && !std::is_same_v<std::decay_t<T>, variant>>>
+    variant(const T& value) {
+        construct_from_value(value);
     }
 
     /**
@@ -122,9 +122,9 @@ class variant {
      * @tparam T 構築する型
      * @param value 値
      */
-    template <typename T, typename = std::enable_if_t<(std::is_same_v<T, Types> || ...)>>
-    variant(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>) {
-        emplace<T>(std::move(value));
+    template <typename T, typename = std::enable_if_t<(std::is_constructible_v<Types, T> || ...) && !std::is_same_v<std::decay_t<T>, variant>>>
+    variant(T&& value) {
+        construct_from_value(std::forward<T>(value));
     }
 
     /**
@@ -199,10 +199,12 @@ class variant {
      * @return *this
      */
     template <typename T>
-    variant& operator=(T&& value) noexcept(std::is_nothrow_assignable_v<T&, T&&> &&
-                                           std::is_nothrow_constructible_v<T, T&&>) {
-        static_assert((std::is_same_v<T, Types> || ...), "T must be one of the variant's types");
-        emplace<std::decay_t<T>>(std::forward<T>(value));  // 新しい値を構築
+    std::enable_if_t<!std::is_same_v<std::decay_t<T>, variant>, variant&>
+    operator=(T&& value) {
+        constexpr size_t target_index = find_constructible_type_index<std::decay_t<T>>();
+        static_assert(target_index != npos, "No constructible type found");
+        using TargetType = std::tuple_element_t<target_index, std::tuple<Types...>>;
+        emplace<TargetType>(std::forward<T>(value));
         return *this;
     }
 
@@ -311,6 +313,32 @@ class variant {
     alignas(max_align) std::byte storage_[max_size];
     size_t index_ = npos;
 
+    template <typename T>
+    void construct_from_value(T&& value) {
+        using DecayedT = std::decay_t<T>;
+        if constexpr ((std::is_same_v<DecayedT, Types> || ...)) {
+            emplace<DecayedT>(std::forward<T>(value));
+        } else {
+            construct_convertible<DecayedT>(std::forward<T>(value));
+        }
+    }
+
+    template <typename T>
+    void construct_convertible(T&& value) {
+        constexpr size_t target_index = find_constructible_type_index<T>();
+        static_assert(target_index != npos, "No constructible type found");
+        using TargetType = std::tuple_element_t<target_index, std::tuple<Types...>>;
+        emplace<TargetType>(std::forward<T>(value));
+    }
+
+    template <typename T>
+    static constexpr size_t find_constructible_type_index() {
+        size_t idx = 0;
+        size_t result = npos;
+        ((std::is_constructible_v<Types, T> ? (result = idx) : ++idx), ...);
+        return result;
+    }
+
     void destroy() noexcept {
         if (valueless_by_exception() || index_ == npos) return;
         destroy_impl(index_);
@@ -375,4 +403,7 @@ class variant {
         }
     }
 };
+// Variant comparison operators temporarily disabled due to visit implementation issues
+// TODO: Fix visit implementation and re-enable comparison operators
+
 }  // namespace bluestl

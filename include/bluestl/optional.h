@@ -39,6 +39,18 @@
 namespace bluestl {
 
 /**
+ * @brief nullopt_t 型の定義
+ */
+struct nullopt_t {
+    explicit constexpr nullopt_t() = default;
+};
+
+/**
+ * @brief nullopt 定数
+ */
+inline constexpr nullopt_t nullopt{};
+
+/**
  * @class optional
  * @brief 値の有無を表す型。STL std::optional風インターフェース。
  * @tparam T 保持する値の型
@@ -57,6 +69,11 @@ class optional {
      * @brief デフォルトコンストラクタ。値を保持しない状態で初期化。
      */
     constexpr optional() noexcept : has_value_(false) {}
+
+    /**
+     * @brief nullopt_t からのコンストラクタ。値を保持しない状態で初期化。
+     */
+    constexpr optional(nullopt_t) noexcept : has_value_(false) {}
 
     /**
      * @brief コピーコンストラクタ。値をコピーしてoptionalを構築。
@@ -142,6 +159,14 @@ class optional {
     }
 
     /**
+     * @brief nullopt_t からの代入演算子。値をリセット。
+     */
+    constexpr optional& operator=(nullopt_t) noexcept {
+        reset();
+        return *this;
+    }
+
+    /**
      * @brief emplace: 新しい値を構築し、optionalに格納。以前の値は破棄される。
      * @tparam Args コンストラクタ引数型
      * @param args コンストラクタ引数
@@ -209,6 +234,16 @@ class optional {
     constexpr const T& value() const {
         BLUESTL_ASSERT(has_value());
         return *get();
+    }
+
+    /**
+     * @brief value_or: 値があれば値を返し、なければデフォルト値を返す。
+     * @param default_value デフォルト値
+     * @return 値またはデフォルト値
+     */
+    template<typename U>
+    constexpr T value_or(U&& default_value) const {
+        return has_value() ? **this : static_cast<T>(std::forward<U>(default_value));
     }
 
    private:
@@ -294,5 +329,117 @@ class optional<T&> {
    private:
     T* ptr_;
 };
+
+/**
+ * @brief optionalの等価比較演算子。
+ */
+template <typename T>
+constexpr bool operator==(const optional<T>& lhs, const optional<T>& rhs) noexcept {
+    if (lhs.has_value() && rhs.has_value()) {
+        return *lhs == *rhs;
+    }
+    return lhs.has_value() == rhs.has_value();
+}
+
+template <typename T>
+constexpr bool operator!=(const optional<T>& lhs, const optional<T>& rhs) noexcept {
+    return !(lhs == rhs);
+}
+
+template <typename T>
+constexpr bool operator==(const optional<T>& lhs, const T& rhs) noexcept {
+    return lhs.has_value() && *lhs == rhs;
+}
+
+template <typename T>
+constexpr bool operator==(const T& lhs, const optional<T>& rhs) noexcept {
+    return rhs.has_value() && lhs == *rhs;
+}
+
+template <typename T>
+constexpr bool operator!=(const optional<T>& lhs, const T& rhs) noexcept {
+    return !(lhs == rhs);
+}
+
+template <typename T>
+constexpr bool operator!=(const T& lhs, const optional<T>& rhs) noexcept {
+    return !(lhs == rhs);
+}
+
+template <typename T>
+constexpr bool operator<(const optional<T>& lhs, const optional<T>& rhs) noexcept {
+    if (!lhs.has_value() && !rhs.has_value()) return false;
+    if (!lhs.has_value()) return true;
+    if (!rhs.has_value()) return false;
+    return *lhs < *rhs;
+}
+
+template <typename T>
+constexpr bool operator<=(const optional<T>& lhs, const optional<T>& rhs) noexcept {
+    return !(rhs < lhs);
+}
+
+template <typename T>
+constexpr bool operator>(const optional<T>& lhs, const optional<T>& rhs) noexcept {
+    return rhs < lhs;
+}
+
+template <typename T>
+constexpr bool operator>=(const optional<T>& lhs, const optional<T>& rhs) noexcept {
+    return !(lhs < rhs);
+}
+
+template <typename T>
+constexpr bool operator<(const optional<T>& lhs, const T& rhs) noexcept {
+    return !lhs.has_value() || *lhs < rhs;
+}
+
+template <typename T>
+constexpr bool operator<(const T& lhs, const optional<T>& rhs) noexcept {
+    return rhs.has_value() && lhs < *rhs;
+}
+
+template <typename T>
+constexpr bool operator<=(const optional<T>& lhs, const T& rhs) noexcept {
+    return !lhs.has_value() || *lhs <= rhs;
+}
+
+template <typename T>
+constexpr bool operator<=(const T& lhs, const optional<T>& rhs) noexcept {
+    return rhs.has_value() && lhs <= *rhs;
+}
+
+template <typename T>
+constexpr bool operator>(const optional<T>& lhs, const T& rhs) noexcept {
+    return lhs.has_value() && *lhs > rhs;
+}
+
+template <typename T>
+constexpr bool operator>(const T& lhs, const optional<T>& rhs) noexcept {
+    return !rhs.has_value() || lhs > *rhs;
+}
+
+template <typename T>
+constexpr bool operator>=(const optional<T>& lhs, const T& rhs) noexcept {
+    return lhs.has_value() && *lhs >= rhs;
+}
+
+template <typename T>
+constexpr bool operator>=(const T& lhs, const optional<T>& rhs) noexcept {
+    return !rhs.has_value() || lhs >= *rhs;
+}
+
+/**
+ * @brief make_optional 関数
+ */
+template <typename T>
+constexpr optional<std::decay_t<T>> make_optional(T&& value) {
+    return optional<std::decay_t<T>>{std::forward<T>(value)};
+}
+
+template <typename T, typename... Args>
+constexpr optional<T> make_optional(Args&&... args) {
+    return optional<T>{T(std::forward<Args>(args)...)};
+}
 
 }  // namespace bluestl
