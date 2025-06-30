@@ -99,9 +99,6 @@ CompactNamespaces: false
 # Templates and concepts
 AlwaysBreakTemplateDeclarations: Yes
 
-# Comments
-ReflowComments: true
-
 # Penalties (fine-tuning for better formatting)
 PenaltyBreakAssignment: 100
 PenaltyBreakBeforeFirstCallParameter: 100
